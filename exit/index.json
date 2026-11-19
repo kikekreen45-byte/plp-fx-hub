@@ -1,0 +1,20 @@
+{
+  "category": "exit",
+  "baseUrl": "./",
+  "effects": [
+    {
+      "id": "exit_elem_expand",
+      "name": "تكبير العنصر وتلاشيه قبل الاستبدال",
+      "desc": "يتمدد العنصر المضغوط ويتلاشى ثم تفتح الصفحة التالية",
+      "file": "elem-expand-before.js",
+      "swapMode": "before_swap"
+    },
+    {
+      "id": "exit_slide_swap",
+      "name": "انزلاق سلس متزامن بين الصفحتين",
+      "desc": "تنسحب الصفحة الحالية وتدخل التالية بالتوازي دون انقطاع",
+      "file": "slide-during-swap.js",
+      "swapMode": "during_swap"
+    }
+  ]
+}
