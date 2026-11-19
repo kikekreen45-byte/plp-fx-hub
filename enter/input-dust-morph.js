@@ -1,24 +1,19 @@
 window.PLP_FX = window.PLP_FX || {};
 window.PLP_FX["enter_input_dust_morph"] = (function () {
-  var ID_FROM = "h1p1صورة5";
-  var ID_TO = "h1p1صورة4";
-  var ID_INPUT = "h1p1إسمك_الكريم_..";
-  var COLOR_LIGHT = "#EFEBE0";
-  var COLOR_DARK = "#242021";
   var cachedWrapBgImg = null;
   var cachedWrapBgSrc = "";
 
-  // إخفاء صورة4 فوراً قبل أول رسم في المعاينة والمخرجات فقط (وليس في المحرر)
-  try {
-    if (document.querySelector(".html-page")) {
-      var initTo = document.getElementById(ID_TO);
-      if (initTo) {
-        initTo.dataset._origOp = initTo.style.opacity || "1";
-        initTo.style.opacity = "0";
-        initTo.style.pointerEvents = "none";
-      }
-    }
-  } catch (e) {}
+  function parseHex(hex) {
+    var c = String(hex || "").trim().replace(/^#/, "");
+    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(c)) return null;
+    return {
+      hex: "#" + c.toUpperCase(),
+      r: parseInt(c.slice(0, 2), 16),
+      g: parseInt(c.slice(2, 4), 16),
+      b: parseInt(c.slice(4, 6), 16)
+    };
+  }
 
   function preloadWrapperBg(wrapper) {
     if (!wrapper) return;
@@ -81,8 +76,7 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
     ctx.restore();
   }
 
-  // خريطة ألوان الخلفية أسفل منطقة تطاير الذرات لتبديل EFEBE0 <-> 242021 بدقة
-  function buildBackdropMap(wrapper, elFrom, elTo, boxX, boxY, boxW, boxH) {
+  function buildBackdropMap(wrapper, elFrom, elTo, boxX, boxY, boxW, boxH, fallbackHex) {
     try {
       var scale = 0.5;
       var bw = Math.max(16, Math.ceil(boxW * scale));
@@ -93,8 +87,7 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
       var ctx = c.getContext("2d");
       ctx.scale(scale, scale);
 
-      var bodyBg = getComputedStyle(document.body).backgroundColor || COLOR_LIGHT;
-      ctx.fillStyle = bodyBg;
+      ctx.fillStyle = getComputedStyle(document.body).backgroundColor || fallbackHex || "#EFEBE0";
       ctx.fillRect(0, 0, boxW, boxH);
 
       if (wrapper) {
@@ -116,8 +109,7 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
         var sibs = Array.prototype.slice.call(parent.children).filter(function (s) {
           if (s === elFrom || s === elTo || !s.classList || !s.classList.contains("comp")) return false;
           if (s.style.display === "none" || parseFloat(getComputedStyle(s).opacity) <= 0.02) return false;
-          var sz = parseInt(s.style.zIndex || 0, 10);
-          if (sz >= maxZ) return false;
+          if (parseInt(s.style.zIndex || 0, 10) >= maxZ) return false;
           var sl = parseFloat(s.style.left) || 0, st = parseFloat(s.style.top) || 0;
           var sw = parseFloat(s.style.width) || 0, sh = parseFloat(s.style.height) || 0;
           return sl + sw >= boxX && sl <= boxX + boxW && st + sh >= boxY && st <= boxY + boxH;
@@ -160,8 +152,7 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
       var opaque = [];
       for (var y = 0; y < ch; y++) {
         for (var x = 0; x < cw; x++) {
-          var a = data[(y * cw + x) * 4 + 3];
-          if (a > 35) opaque.push(x, y);
+          if (data[(y * cw + x) * 4 + 3] > 35) opaque.push(x, y);
         }
       }
       var total = opaque.length / 2;
@@ -169,51 +160,47 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
         var step = Math.max(1, total / targetCount);
         for (var k = 0; k < total; k += step) {
           var idxPair = Math.floor(k) * 2;
-          var px = opaque[idxPair];
-          var py = opaque[idxPair + 1];
+          var px = opaque[idxPair], py = opaque[idxPair + 1];
           var di = (py * cw + px) * 4;
           pts.push({
             x: boxX + (px + 0.5) / sc,
             y: boxY + (py + 0.5) / sc,
-            r: data[di],
-            g: data[di + 1],
-            b: data[di + 2],
-            a: data[di + 3] / 255
+            r: data[di], g: data[di + 1], b: data[di + 2], a: data[di + 3] / 255
           });
         }
       }
     } catch (e) {}
 
-    // خطة بديلة إذا كانت الصورة غير قابلة للقراءة
     if (pts.length < 30) {
       for (var n = 0; n < 450; n++) {
-        pts.push({
-          x: l + Math.random() * w,
-          y: t + Math.random() * h,
-          r: 36, g: 32, b: 33, a: 1
-        });
+        pts.push({ x: l + Math.random() * w, y: t + Math.random() * h, r: 36, g: 32, b: 33, a: 1 });
       }
     }
     return pts;
   }
 
-  function resolveColorOverBg(px, py, br, bg, bb, bgMap) {
-    if (bgMap) {
+  function resolveSwappedColor(px, py, br, bg, bb, bgMap, colA, colB) {
+    if (bgMap && colA && colB) {
       var bx = Math.max(0, Math.min(bgMap.w - 1, Math.floor((px - bgMap.x) * bgMap.scale)));
       var by = Math.max(0, Math.min(bgMap.h - 1, Math.floor((py - bgMap.y) * bgMap.scale)));
       var idx = (by * bgMap.w + bx) * 4;
       var r = bgMap.data[idx], g = bgMap.data[idx + 1], b = bgMap.data[idx + 2];
 
-      // مطابقة #EFEBE0 (239, 235, 224) و #242021 (36, 32, 33)
-      var dLight = Math.abs(r - 239) + Math.abs(g - 235) + Math.abs(b - 224);
-      var dDark = Math.abs(r - 36) + Math.abs(g - 32) + Math.abs(b - 33);
-      if (dLight <= 105) return COLOR_DARK;
-      if (dDark <= 105) return COLOR_LIGHT;
+      var dA = Math.abs(r - colA.r) + Math.abs(g - colA.g) + Math.abs(b - colA.b);
+      var dB = Math.abs(r - colB.r) + Math.abs(g - colB.g) + Math.abs(b - colB.b);
+      if (dA <= 115 && dA <= dB) return colB.hex;
+      if (dB <= 115 && dB < dA) return colA.hex;
 
-      // حواف التدرج بين اللونين
-      var sat = Math.max(r, g, b) - Math.min(r, g, b);
-      if (sat < 35) {
-        return (0.299 * r + 0.587 * g + 0.114 * b) > 135 ? COLOR_DARK : COLOR_LIGHT;
+      var vr = colB.r - colA.r, vg = colB.g - colA.g, vb = colB.b - colA.b;
+      var lenSq = vr * vr + vg * vg + vb * vb;
+      if (lenSq > 100) {
+        var t = ((r - colA.r) * vr + (g - colA.g) * vg + (b - colA.b) * vb) / lenSq;
+        if (t >= 0 && t <= 1) {
+          var dr = r - (colA.r + vr * t), dg = g - (colA.g + vg * t), db = b - (colA.b + vb * t);
+          if (Math.abs(dr) + Math.abs(dg) + Math.abs(db) < 60) {
+            return t < 0.5 ? colB.hex : colA.hex;
+          }
+        }
       }
     }
     return "rgb(" + (br | 0) + "," + (bg | 0) + "," + (bb | 0) + ")";
@@ -226,12 +213,11 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
     }
   }
 
-  function runDustMorph(elFrom, elTo, onDone) {
+  function runDustMorph(elFrom, elTo, colA, colB, onDone) {
     if (!elFrom || !elTo) { if (onDone) onDone(); return; }
     var parent = elFrom.parentElement;
     if (!parent) { if (onDone) onDone(); return; }
 
-    // إلغاء أي تأثير غبار نشط سابقاً على نفس الحاوية
     if (parent._dustRaf) { cancelAnimationFrame(parent._dustRaf); parent._dustRaf = null; }
     if (parent._dustCanvas && parent._dustCanvas.parentNode) {
       parent._dustCanvas.parentNode.removeChild(parent._dustCanvas);
@@ -258,7 +244,7 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
     var targetCount = 1350;
     var srcPts = sampleElementPixels(elFrom, minX, minY, boxW, boxH, targetCount);
     var dstPts = sampleElementPixels(elTo, minX, minY, boxW, boxH, targetCount);
-    var bgMap = buildBackdropMap(wrapper, elFrom, elTo, minX, minY, boxW, boxH);
+    var bgMap = (colA && colB) ? buildBackdropMap(wrapper, elFrom, elTo, minX, minY, boxW, boxH, colA.hex) : null;
 
     shuffle(srcPts);
     shuffle(dstPts);
@@ -270,13 +256,13 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
       var s = srcPts[i % srcPts.length];
       var d = dstPts[i % dstPts.length];
       var ang = Math.atan2(s.y - cy, s.x - cx) + (Math.random() - 0.5) * 2.2;
-      var burst = (18 + Math.random() * (pad * 0.82));
+      var burst = 18 + Math.random() * (pad * 0.82);
       particles[i] = {
         sx: s.x, sy: s.y, tx: d.x, ty: d.y,
         sr: s.r, sg: s.g, sb: s.b,
         tr: d.r, tg: d.g, tb: d.b,
         bx: Math.cos(ang) * burst,
-        by: Math.sin(ang) * burst - (Math.random() * 14),
+        by: Math.sin(ang) * burst - Math.random() * 14,
         delay: Math.random() * 0.24,
         span: 0.54 + Math.random() * 0.22,
         freq: 0.022 + Math.random() * 0.032,
@@ -315,24 +301,16 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
       var elapsed = ts - startTime;
       var p = Math.min(1, elapsed / duration);
 
-      // تلاشي ناعم للأصل في البداية وظهور الهدف في النهاية بدون قفزة
       elFrom.style.opacity = p < 0.16 ? String(opFrom * (1 - p / 0.16)) : "0";
       elTo.style.opacity = p > 0.84 ? String(opTo * ((p - 0.84) / 0.16)) : "0";
-
       ctx.clearRect(0, 0, boxW, boxH);
 
       for (var i = 0; i < count; i++) {
         var pt = particles[i];
         var lp = (p - pt.delay) / pt.span;
-        if (lp < 0) lp = 0;
-        else if (lp > 1) lp = 1;
+        if (lp < 0) lp = 0; else if (lp > 1) lp = 1;
 
-        // منحنى تسارع وتباطؤ سلس
-        var ease = lp < 0.5
-          ? 4 * lp * lp * lp
-          : 1 - Math.pow(-2 * lp + 2, 3) / 2;
-
-        // ذروة النشاط والتشتت في منتصف الطيران
+        var ease = lp < 0.5 ? 4 * lp * lp * lp : 1 - Math.pow(-2 * lp + 2, 3) / 2;
         var energy = Math.sin(Math.PI * lp);
         var swirl = energy * energy;
         var jx = Math.sin(elapsed * pt.freq + pt.phase) * pt.buzz * energy;
@@ -340,12 +318,11 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
 
         var px = pt.sx + (pt.tx - pt.sx) * ease + pt.bx * swirl + jx;
         var py = pt.sy + (pt.ty - pt.sy) * ease + pt.by * swirl + jy;
-
         var rr = pt.sr + (pt.tr - pt.sr) * ease;
         var gg = pt.sg + (pt.tg - pt.sg) * ease;
         var bb = pt.sb + (pt.tb - pt.sb) * ease;
 
-        ctx.fillStyle = resolveColorOverBg(px, py, rr, gg, bb, bgMap);
+        ctx.fillStyle = resolveSwappedColor(px, py, rr, gg, bb, bgMap, colA, colB);
         ctx.globalAlpha = 0.65 + 0.35 * (0.5 + 0.5 * Math.sin(elapsed * pt.freq * 1.5 + pt.phase));
         var sz = pt.size * (0.8 + 0.45 * energy);
         ctx.fillRect(px - minX - sz * 0.5, py - minY - sz * 0.5, sz, sz);
@@ -368,32 +345,54 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
     parent._dustRaf = requestAnimationFrame(step);
   }
 
+  function resolvePair(el, ctx) {
+    var p = (ctx && ctx.params) || {};
+    var elFrom = (p.fromEl && document.getElementById(p.fromEl)) || el;
+    var elTo = p.targetEl ? document.getElementById(p.targetEl) : null;
+    return {
+      elFrom: elFrom,
+      elTo: elTo,
+      inputId: p.triggerInput || "",
+      colA: parseHex(p.colorA),
+      colB: parseHex(p.colorB)
+    };
+  }
+
   return {
+    setup: function (el, ctx) {
+      var cfg = resolvePair(el, ctx);
+      if (cfg.elFrom && cfg.elFrom.dataset._origOp === undefined) cfg.elFrom.dataset._origOp = cfg.elFrom.style.opacity || "1";
+      if (cfg.elTo) {
+        if (cfg.elTo.dataset._origOp === undefined) cfg.elTo.dataset._origOp = cfg.elTo.style.opacity || "1";
+        cfg.elTo.style.opacity = "0";
+        cfg.elTo.style.pointerEvents = "none";
+      }
+    },
     run: function (el, ctx) {
       return new Promise(function (resolve) {
-        var el5 = document.getElementById(ID_FROM) || el;
-        var el4 = document.getElementById(ID_TO);
-        if (!el5 || !el4) { resolve(); return; }
+        var cfg = resolvePair(el, ctx);
+        var elFrom = cfg.elFrom, elTo = cfg.elTo;
+        if (!elFrom || !elTo) { resolve(); return; }
 
-        if (el5.dataset._origOp === undefined) el5.dataset._origOp = el5.style.opacity || "1";
-        if (el4.dataset._origOp === undefined) el4.dataset._origOp = el4.style.opacity || "1";
-        preloadWrapperBg(el5.closest(".plp-wrapper"));
+        el._dustFromRef = elFrom;
+        el._dustToRef = elTo;
+        if (elFrom.dataset._origOp === undefined) elFrom.dataset._origOp = elFrom.style.opacity || "1";
+        if (elTo.dataset._origOp === undefined) elTo.dataset._origOp = elTo.style.opacity || "1";
+        preloadWrapperBg(elFrom.closest(".plp-wrapper"));
 
-        // في وضع التجربة الحية داخل المحرر: تشغيل فوري للمعاينة
-        if (ctx && ctx.isPreview) {
-          runDustMorph(el5, el4, resolve);
+        if ((ctx && ctx.isPreview) || !cfg.inputId) {
+          runDustMorph(elFrom, elTo, cfg.colA, cfg.colB, resolve);
           return;
         }
 
-        // الحالة الابتدائية عند فتح الواجهة: إظهار صورة5 وإخفاء صورة4
-        el5.style.opacity = el5.dataset._origOp;
-        el5.style.pointerEvents = "auto";
-        el4.style.opacity = "0";
-        el4.style.pointerEvents = "none";
+        elFrom.style.opacity = elFrom.dataset._origOp;
+        elFrom.style.pointerEvents = "auto";
+        elTo.style.opacity = "0";
+        elTo.style.pointerEvents = "none";
 
         var tries = 0;
         function bindInput() {
-          var host = document.getElementById(ID_INPUT);
+          var host = document.getElementById(cfg.inputId);
           var inp = host ? (host.querySelector(".plp-live-input, input, textarea") || (host.tagName === "INPUT" ? host : null)) : null;
           if (!inp) {
             if (++tries < 15) setTimeout(bindInput, 100);
@@ -401,22 +400,23 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
             return;
           }
 
-          if (!inp._dustMorphBound) {
-            inp._dustMorphBound = true;
-            var currentState = (inp.value && inp.value.length > 0) ? "4" : "5";
-            if (currentState === "4") {
-              el5.style.opacity = "0"; el5.style.pointerEvents = "none";
-              el4.style.opacity = el4.dataset._origOp; el4.style.pointerEvents = "auto";
+          var bindKey = "_dustBound_" + elFrom.id + "_" + elTo.id;
+          if (!inp[bindKey]) {
+            inp[bindKey] = true;
+            var currentState = (inp.value && inp.value.length > 0) ? "to" : "from";
+            if (currentState === "to") {
+              elFrom.style.opacity = "0"; elFrom.style.pointerEvents = "none";
+              elTo.style.opacity = elTo.dataset._origOp; elTo.style.pointerEvents = "auto";
             }
 
             inp.addEventListener("input", function () {
               var hasChar = inp.value.length > 0;
-              if (hasChar && currentState !== "4") {
-                currentState = "4";
-                runDustMorph(el5, el4);
-              } else if (!hasChar && currentState !== "5") {
-                currentState = "5";
-                runDustMorph(el4, el5);
+              if (hasChar && currentState !== "to") {
+                currentState = "to";
+                runDustMorph(elFrom, elTo, cfg.colA, cfg.colB);
+              } else if (!hasChar && currentState !== "from") {
+                currentState = "from";
+                runDustMorph(elTo, elFrom, cfg.colA, cfg.colB);
               }
             });
           }
@@ -425,10 +425,11 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
         bindInput();
       });
     },
-    reset: function (el) {
-      var el5 = document.getElementById(ID_FROM) || el;
-      var el4 = document.getElementById(ID_TO);
-      var parent = el5 && el5.parentElement;
+    reset: function (el, ctx) {
+      var cfg = resolvePair(el, ctx);
+      var elFrom = (el && el._dustFromRef) || cfg.elFrom;
+      var elTo = (el && el._dustToRef) || cfg.elTo;
+      var parent = elFrom && elFrom.parentElement;
       if (parent) {
         if (parent._dustRaf) { cancelAnimationFrame(parent._dustRaf); parent._dustRaf = null; }
         if (parent._dustCanvas && parent._dustCanvas.parentNode) {
@@ -436,13 +437,13 @@ window.PLP_FX["enter_input_dust_morph"] = (function () {
           parent._dustCanvas = null;
         }
       }
-      if (el5 && el5.dataset._origOp !== undefined) {
-        el5.style.opacity = el5.dataset._origOp;
-        el5.style.pointerEvents = "auto";
+      if (elFrom && elFrom.dataset._origOp !== undefined) {
+        elFrom.style.opacity = elFrom.dataset._origOp;
+        elFrom.style.pointerEvents = "auto";
       }
-      if (el4 && el4.dataset._origOp !== undefined) {
-        el4.style.opacity = el4.dataset._origOp;
-        el4.style.pointerEvents = "auto";
+      if (elTo && elTo.dataset._origOp !== undefined) {
+        elTo.style.opacity = elTo.dataset._origOp;
+        elTo.style.pointerEvents = "auto";
       }
     }
   };
