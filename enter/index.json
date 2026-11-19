@@ -25,6 +25,15 @@
       "file": "tank-fill-guide.js",
       "requiredElements": 1,
       "usesGuide": true
+     },
+     {
+      "id": "enter_bar_full_wave",
+      "name": "امتلاء شريط لكامل الخط مع تذبذب سلس",
+      "desc": "يتمدد الشريط ليصل لطول الخط بالكامل ثم يرتفع وينخفض بنعومة حتى يستقر في موضعه الأصلي",
+      "file": "bar-full-wave.js",
+      "requiredElements": 1,
+      "usesGuide": true
      }
+    
   ]
 }
