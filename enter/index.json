@@ -17,6 +17,14 @@
       "file": "bar-to-guide.js",
       "requiredElements": 1,
       "usesGuide": true
-    }
+    },
+    {
+      "id": "enter_tank_fill",
+      "name": "امتلاء خزان متذبذب حتى الخط",
+      "desc": "يتمدد الشريط لليمين ويرتفع وينخفض دون تخطي الخط الوهمي حتى يستقر على قيمته الأصلية",
+      "file": "tank-fill-guide.js",
+      "requiredElements": 1,
+      "usesGuide": true
+     }
   ]
 }
