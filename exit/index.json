@@ -15,6 +15,51 @@
       "desc": "تنسحب الصفحة الحالية وتدخل التالية بالتوازي دون انقطاع",
       "file": "slide-during-swap.js",
       "swapMode": "during_swap"
+    },
+    {
+  "category": "exit",
+  "baseUrl": "./",
+  "effects": [
+    {
+      "id": "exit_elem_expand",
+      "name": "تكبير العنصر وتلاشيه قبل الاستبدال",
+      "desc": "يتمدد العنصر المضغوط ويتلاشى ثم تفتح الصفحة التالية",
+      "file": "elem-expand-before.js",
+      "swapMode": "before_swap"
+    },
+    {
+      "id": "exit_slide_swap",
+      "name": "انزلاق سلس متزامن بين الصفحتين",
+      "desc": "تنسحب الصفحة الحالية وتدخل التالية بالتوازي دون انقطاع",
+      "file": "slide-during-swap.js",
+      "swapMode": "during_swap"
+    },
+    {
+      "id": "exit_hero_morph",
+      "name": "انتقال بطولي عابر للصفحات (Hero Morph)",
+      "desc": "يطير العنصر من الصفحة الحالية ويتحول بسلاسة لموضع العنصر الهدف في الصفحة التالية",
+      "file": "hero-morph-swap.js",
+      "swapMode": "cross_stage",
+      "params": [
+        { "key": "fromEl", "label": "العنصر المنطلق (الصفحة الحالية)", "type": "element", "default": "$self", "required": true },
+        { "key": "toEl", "label": "العنصر المستقبِل (في الصفحة التالية)", "type": "element", "scope": "other", "required": true },
+        { "key": "duration", "label": "مدة الانتقال بالملي ثانية", "type": "number", "default": "520" }
+      ]
+    },
+    {
+      "id": "exit_cross_dust",
+      "name": "تفكك غبار عابر للصفحات",
+      "desc": "يتفكك العنصر إلى ذرات نشطة تطير عبر الشاشتين وتتجمع في العنصر الهدف بالصفحة التالية",
+      "file": "cross-dust-portal.js",
+      "swapMode": "cross_stage",
+      "params": [
+        { "key": "fromEl", "label": "من العنصر (الصفحة الحالية)", "type": "element", "default": "$self", "required": true },
+        { "key": "toEl", "label": "إلى العنصر (في الصفحة التالية)", "type": "element", "scope": "other", "required": true },
+        { "key": "dustColor", "label": "لون الذرات (اختياري - اتركه بلا لون لألوان الصورة)", "type": "color", "default": "" }
+      ]
     }
+  ]
+    }
+    
   ]
 }
