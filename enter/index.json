@@ -1,0 +1,22 @@
+{
+  "category": "enter",
+  "baseUrl": "./",
+  "effects": [
+    {
+      "id": "enter_fade_up",
+      "name": "ظهور وانزلاق للأعلى",
+      "desc": "يدخل العنصر بنعومة من الأسفل عند فتح الصفحة",
+      "file": "fade-up.js",
+      "requiredElements": 1,
+      "usesGuide": false
+    },
+    {
+      "id": "enter_bar_guide",
+      "name": "تمدد شريط حتى الخط الوهمي",
+      "desc": "يتمدد العنصر أفقياً ويتوقف بدقة عند إحداثي الخط الوهمي",
+      "file": "bar-to-guide.js",
+      "requiredElements": 1,
+      "usesGuide": true
+    }
+  ]
+}
