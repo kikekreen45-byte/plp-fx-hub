@@ -25,23 +25,29 @@
       "file": "tank-fill-guide.js",
       "requiredElements": 1,
       "usesGuide": true
-     },
-     {
+    },
+    {
       "id": "enter_bar_full_wave",
       "name": "امتلاء شريط لكامل الخط مع تذبذب سلس",
       "desc": "يتمدد الشريط ليصل لطول الخط بالكامل ثم يرتفع وينخفض بنعومة حتى يستقر في موضعه الأصلي",
       "file": "bar-full-wave.js",
       "requiredElements": 1,
       "usesGuide": true
-     },
-     {
+    },
+    {
       "id": "enter_input_dust_morph",
-      "name": "تحول غبار نشط عند الكتابة (صورة5 ← صورة4)",
-      "desc": "يتفكك العنصر إلى ذرات صغيرة نشطة عند كتابة أول حرف مع عكس اللون بين EFEBE0 و 242021",
+      "name": "تحول غبار نشط مخصّص",
+      "desc": "تفكك وتجمع جزيئات بين أي صورتين عند الكتابة مع تبديل ذكي لأي لونين",
       "file": "input-dust-morph.js",
       "requiredElements": 1,
-      "usesGuide": false
-     }
-    
+      "usesGuide": false,
+      "params": [
+        { "key": "fromEl", "label": "من الصورة (الأصلية)", "type": "element", "default": "$self", "required": true },
+        { "key": "targetEl", "label": "إلى الصورة (الهدف)", "type": "element", "required": true },
+        { "key": "triggerInput", "label": "عند الكتابة في حقل الإدخال (اتركه فارغاً للتشغيل التلقائي)", "type": "input_element" },
+        { "key": "colorA", "label": "اللون الأول (خلفية ↔ ذرة)", "type": "color", "default": "#EFEBE0" },
+        { "key": "colorB", "label": "اللون الثاني (خلفية ↔ ذرة)", "type": "color", "default": "#242021" }
+      ]
+    }
   ]
 }
