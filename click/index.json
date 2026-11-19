@@ -1,0 +1,22 @@
+{
+  "category": "click",
+  "baseUrl": "./",
+  "effects": [
+    {
+      "id": "click_jelly",
+      "name": "نبضة مطاطية للأزرار",
+      "desc": "تأثير ضغط مرن ومستجيب عند اللمس أو الضغط المطول",
+      "file": "jelly-press.js",
+      "requiredElements": 1,
+      "triggers": ["click", "longpress"]
+    },
+    {
+      "id": "click_glow_pulse",
+      "name": "توهج وتكبير لحظي",
+      "desc": "يضيء العنصر بنبضة ناعمة عند الضغط عليه",
+      "file": "glow-pulse.js",
+      "requiredElements": 1,
+      "triggers": ["click", "longpress"]
+    }
+  ]
+}
