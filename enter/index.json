@@ -33,6 +33,14 @@
       "file": "bar-full-wave.js",
       "requiredElements": 1,
       "usesGuide": true
+     },
+     {
+      "id": "enter_input_dust_morph",
+      "name": "تحول غبار نشط عند الكتابة (صورة5 ← صورة4)",
+      "desc": "يتفكك العنصر إلى ذرات صغيرة نشطة عند كتابة أول حرف مع عكس اللون بين EFEBE0 و 242021",
+      "file": "input-dust-morph.js",
+      "requiredElements": 1,
+      "usesGuide": false
      }
     
   ]
