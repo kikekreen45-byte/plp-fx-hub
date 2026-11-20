@@ -113,7 +113,53 @@
             { "value": "no", "label": "بدون صوت", "icon": "volume-x", "color": "#888" },
             { "value": "yes", "label": "تفعيل الصوت التفاعلي", "icon": "volume-2", "color": "#34C759" }
           ]
+        },
+            {
+      "id": "click_liquid_node_morph",
+      "name": "انتقال سائل متماسك بالقطرات والأرقام (Liquid Morph)",
+      "desc": "ينصهر العنصر إلى قطرة ترتد بخيط وتنقسم لقطرات سائلة مربوطة بخطوط وأرقام ثم تلتحم في العنصر الهدف (نفس الصفحة أو صفحة أخرى)",
+      "file": "liquid-node-morph.js",
+      "triggers": ["click", "longpress"],
+      "params": [
+        { "key": "fromEl", "label": "من العنصر (الأصل)", "type": "element", "default": "$self", "required": true },
+        { "key": "toEl", "label": "إلى العنصر (في نفس الصفحة أو صفحة أخرى)", "type": "element", "scope": "all", "required": true },
+        { "key": "blobColor", "label": "لون السائل والخطوط (بلا لون = لون العنصر تلقائياً)", "type": "color", "default": "#242021" },
+        { "key": "blobCount", "label": "عدد القطرات المنقسمة (3 إلى 9)", "type": "number", "default": "5" },
+        {
+          "key": "showNumbers",
+          "label": "الخطوط الهندسية والأرقام التقنية",
+          "type": "select",
+          "default": "full",
+          "options": [
+            { "value": "full", "label": "قطرات سائلة + خطوط ربط + أرقام متغيرة", "icon": "sparkles", "color": "#06B6D4" },
+            { "value": "lines", "label": "قطرات سائلة + خطوط ربط فقط", "icon": "git-branch", "color": "#F59E0B" },
+            { "value": "liquid", "label": "قطرات سائلة نقية فقط", "icon": "droplet", "color": "#E86A33" }
+          ]
+        },
+        { "key": "duration", "label": "مدة الحركة بالملي ثانية (1600 سريع · 2200 متوازن)", "type": "number", "default": "2200" },
+        {
+          "key": "startHiddenTo",
+          "label": "إخفاء العنصر الهدف قبل الضغط (داخل نفس الصفحة)",
+          "type": "select",
+          "default": "yes",
+          "options": [
+            { "value": "yes", "label": "نعم — يظهر بعد التحوّل", "icon": "eye-off", "color": "#34C759" },
+            { "value": "no", "label": "لا — يبقى ظاهراً كما هو", "icon": "eye", "color": "#888" }
+          ]
+        },
+        {
+          "key": "hideFrom",
+          "label": "إخفاء العنصر الأول بعد التحوّل (داخل نفس الصفحة)",
+          "type": "select",
+          "default": "yes",
+          "options": [
+            { "value": "yes", "label": "نعم — يتحوّل بالكامل للعنصر الثاني", "icon": "check", "color": "#E86A33" },
+            { "value": "no", "label": "لا — إبقاء العنصر الأول ظاهراً", "icon": "layers", "color": "#888" }
+          ]
         }
+      ]
+    }
+
       ]
     }
   ]
