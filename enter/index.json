@@ -48,6 +48,31 @@
         { "key": "colorA", "label": "اللون الأول (خلفية ↔ ذرة)", "type": "color", "default": "#EFEBE0" },
         { "key": "colorB", "label": "اللون الثاني (خلفية ↔ ذرة)", "type": "color", "default": "#242021" }
       ]
-    }
+    },
+        {
+      "id": "enter_balls_write_text",
+      "name": "كرات مرنة تكتب النص بالتعاون",
+      "desc": "تتعاون كرات مرنة بانعطاف سلس جداً في كتابة النص العربي وكشفه من اليمين لليسار",
+      "file": "balls-write-text.js",
+      "requiredElements": 1,
+      "usesGuide": false,
+      "params": [
+        { "key": "ballCount", "label": "عدد الكرات المشاركة (1 إلى 12)", "type": "number", "default": "3" },
+        { "key": "speed", "label": "السرعة (1 بطيء ← 10 سريع)", "type": "number", "default": "5" },
+        { "key": "ballSize", "label": "حجم الكرات (تكبير وتصغير بالبكسل)", "type": "number", "default": "22" },
+        { "key": "ballColor", "label": "لون الكرات (بلا لون = لون النص تلقائياً)", "type": "color", "default": "" },
+        {
+          "key": "glowStyle",
+          "label": "أسلوب الذيل واللمعان",
+          "type": "select",
+          "default": "ribbon",
+          "options": [
+            { "value": "ribbon", "label": "ذيل مرن ناعم ينحني مع الاستدارة", "icon": "wind", "color": "#06B6D4" },
+            { "value": "sparkle", "label": "ذيل مرن + شرارات خفيفة عند المنعطفات", "icon": "sparkles", "color": "#F59E0B" },
+            { "value": "clean", "label": "كرات حبر نقية بدون ذيل", "icon": "circle", "color": "#E86A33" }
+          ]
+        }
+      ]
+        }
   ]
 }
