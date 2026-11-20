@@ -71,7 +71,15 @@
             { "value": "sparkle", "label": "ذيل مرن + شرارات خفيفة عند المنعطفات", "icon": "sparkles", "color": "#F59E0B" },
             { "value": "clean", "label": "كرات حبر نقية بدون ذيل", "icon": "circle", "color": "#E86A33" }
           ]
-        }
+        },
+            {
+      "id": "enter_jannah_rewards",
+      "name": "نظام بطاقات جزاء الجنة التفاعلي (h3)",
+      "desc": "ينشئ 4 بطاقات قابلة للسحب من h3f1 مع أيقونات Lucide والعدّاد المحفوظ h3f2 ونبثاق الأحاديث الصحيحة h3f3 بانتقالات متطورة",
+      "file": "jannah-rewards-system.js",
+      "requiredElements": 1,
+      "usesGuide": false
+    }
       ]
         }
   ]
