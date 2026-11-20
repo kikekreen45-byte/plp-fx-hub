@@ -17,6 +17,104 @@
       "file": "glow-pulse.js",
       "requiredElements": 1,
       "triggers": ["click", "longpress"]
+    },
+    {
+      "id": "click_open_page",
+      "name": "فتح صفحة أخرى (بالضغط أو المطوّل)",
+      "desc": "ينقلك إلى أي صفحة في التطبيق بانتقال سلس مع بقاء الشريط الثابت h0",
+      "file": "open-page.js",
+      "triggers": ["click", "longpress"],
+      "params": [
+        { "key": "targetPage", "label": "الصفحة المطلوب فتحها", "type": "page", "required": true },
+        {
+          "key": "anim",
+          "label": "نوع حركة الانتقال",
+          "type": "select",
+          "default": "fade",
+          "options": [
+            { "value": "fade", "label": "تلاشي ناعم (Fade)", "icon": "sparkles", "color": "#06B6D4" },
+            { "value": "slide_left", "label": "انزلاق لليسار", "icon": "arrow-left", "color": "#E86A33" },
+            { "value": "slide_right", "label": "انزلاق لليمين", "icon": "arrow-right", "color": "#E86A33" },
+            { "value": "slide_up", "label": "صعود ناعم للأعلى", "icon": "arrow-up", "color": "#34C759" },
+            { "value": "zoom", "label": "تكبير وتلاشي", "icon": "maximize-2", "color": "#9B59B6" },
+            { "value": "instant", "label": "فوري بدون حركة", "icon": "zap", "color": "#888" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "click_jump_to_element",
+      "name": "الانتقال إلى عنصر محدد (عبر الصفحات)",
+      "desc": "يفتح صفحة العنصر تلقائياً ويمرّر الشاشة إليه مع نبضة تمييز",
+      "file": "jump-to-element.js",
+      "triggers": ["click", "longpress"],
+      "params": [
+        { "key": "targetEl", "label": "العنصر المستهدف (من أي صفحة)", "type": "element", "scope": "all", "required": true },
+        {
+          "key": "highlight",
+          "label": "توهج تمييز عند الوصول",
+          "type": "select",
+          "default": "yes",
+          "options": [
+            { "value": "yes", "label": "نعم — ومضة تمييز حول العنصر", "icon": "sparkles", "color": "#34C759" },
+            { "value": "no", "label": "لا — تمرير هادئ فقط", "icon": "minus", "color": "#888" }
+          ]
+        },
+        { "key": "glowColor", "label": "لون التوهج", "type": "color", "default": "#E86A33" }
+      ]
+    },
+    {
+      "id": "click_toggle_element",
+      "name": "إظهار / إخفاء عنصر أو صندوق عائم",
+      "desc": "يُظهر أو يُخفي أي عنصر أو نافذة عائمة بحركة ناعمة عند الضغط أو الضغط المطوّل",
+      "file": "toggle-element.js",
+      "triggers": ["click", "longpress"],
+      "params": [
+        { "key": "targetEl", "label": "العنصر أو الصندوق العائم المستهدف", "type": "element", "scope": "all", "includeFloats": true, "required": true },
+        {
+          "key": "action",
+          "label": "الإجراء عند الضغط",
+          "type": "select",
+          "default": "toggle",
+          "options": [
+            { "value": "toggle", "label": "تبديل (إظهار / إخفاء)", "icon": "repeat", "color": "#06B6D4" },
+            { "value": "show", "label": "إظهار فقط", "icon": "eye", "color": "#34C759" },
+            { "value": "hide", "label": "إخفاء فقط", "icon": "eye-off", "color": "#ff6b7a" }
+          ]
+        },
+        {
+          "key": "startHidden",
+          "label": "هل يكون العنصر مخفياً عند فتح الصفحة؟",
+          "type": "select",
+          "default": "yes",
+          "options": [
+            { "value": "yes", "label": "نعم — مخفي حتى يُضغط الزر", "icon": "eye-off", "color": "#F59E0B" },
+            { "value": "no", "label": "لا — يبقى على حالته الأصلية", "icon": "eye", "color": "#888" }
+          ]
+        },
+        {
+          "key": "anim",
+          "label": "حركة الظهور والاختفاء",
+          "type": "select",
+          "default": "pop",
+          "options": [
+            { "value": "pop", "label": "تنبّثق بتكبير ناعم (Pop)", "icon": "sparkles", "color": "#E86A33" },
+            { "value": "fade", "label": "تلاشي ناعم (Fade)", "icon": "sun", "color": "#06B6D4" },
+            { "value": "slide_up", "label": "انزلاق للأعلى", "icon": "arrow-up", "color": "#34C759" },
+            { "value": "none", "label": "فوري بدون حركة", "icon": "zap", "color": "#888" }
+          ]
+        },
+        {
+          "key": "sound",
+          "label": "صوت نقرة خفيف",
+          "type": "select",
+          "default": "no",
+          "options": [
+            { "value": "no", "label": "بدون صوت", "icon": "volume-x", "color": "#888" },
+            { "value": "yes", "label": "تفعيل الصوت التفاعلي", "icon": "volume-2", "color": "#34C759" }
+          ]
+        }
+      ]
     }
   ]
 }
