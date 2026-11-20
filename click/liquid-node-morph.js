@@ -1,26 +1,5 @@
 window.PLP_FX = window.PLP_FX || {};
 window.PLP_FX["click_liquid_node_morph"] = (function () {
-  var gradSprite = null;
-
-  function getGradSprite() {
-    if (gradSprite) return gradSprite;
-    var s = 64;
-    var c = document.createElement("canvas");
-    c.width = s;
-    c.height = s;
-    var gctx = c.getContext("2d");
-    var g = gctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-    g.addColorStop(0.0, "rgba(255,255,255,1)");
-    g.addColorStop(0.36, "rgba(255,255,255,0.86)");
-    g.addColorStop(0.62, "rgba(255,255,255,0.36)");
-    g.addColorStop(0.84, "rgba(255,255,255,0.09)");
-    g.addColorStop(1.0, "rgba(255,255,255,0)");
-    gctx.fillStyle = g;
-    gctx.fillRect(0, 0, s, s);
-    gradSprite = c;
-    return gradSprite;
-  }
-
   function parseHex(hex) {
     var c = String(hex || "").trim().replace(/^#/, "");
     if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
@@ -33,7 +12,7 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
   }
 
   function sampleElementColor(el) {
-    var fallback = { r: 36, g: 32, b: 33 }; // #242021
+    var fallback = { r: 36, g: 32, b: 33 };
     if (!el) return fallback;
     try {
       var img = el.querySelector("img");
@@ -92,26 +71,109 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
     return (r && r.width > 1 && r.height > 1) ? r : null;
   }
 
+  // رسم جسر سائل فيكتور نقي بين دائرتين بدون أي بكسلة (Vector Metaball Bridge)
+  function drawVectorBridge(ctx, x1, y1, r1, x2, y2, r2, maxRatio) {
+    if (r1 < 1 || r2 < 1) return;
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var d = Math.hypot(dx, dy);
+    var totalR = r1 + r2;
+    var maxDist = totalR * (maxRatio || 2.1);
+
+    if (d <= Math.abs(r1 - r2) + 0.5 || d >= maxDist) return;
+
+    var startGap = totalR * 0.72;
+    var gapRatio = clamp((d - startGap) / Math.max(1, maxDist - startGap), 0, 1);
+    if (gapRatio >= 0.992) return;
+
+    var u1 = 0, u2 = 0;
+    if (d < totalR) {
+      u1 = Math.acos(clamp((r1 * r1 + d * d - r2 * r2) / (2 * r1 * d), -1, 1));
+      u2 = Math.acos(clamp((r2 * r2 + d * d - r1 * r1) / (2 * r2 * d), -1, 1));
+    }
+
+    var angleBetween = Math.atan2(dy, dx);
+    var maxSpread = Math.acos(clamp((r1 - r2) / d, -1, 1));
+
+    // تضييق زاوية الاتصال تدريجياً قبل الانفصال حتى ينقطع الجسر بنعومة تامة
+    var v = lerp(0.56, 0.14, Math.pow(gapRatio, 0.85));
+
+    var a1 = angleBetween + u1 + (maxSpread - u1) * v;
+    var a2 = angleBetween - u1 - (maxSpread - u1) * v;
+    var a3 = angleBetween + Math.PI - u2 - (Math.PI - u2 - maxSpread) * v;
+    var a4 = angleBetween - Math.PI + u2 + (Math.PI - u2 - maxSpread) * v;
+
+    var p1x = x1 + Math.cos(a1) * r1, p1y = y1 + Math.sin(a1) * r1;
+    var p2x = x1 + Math.cos(a2) * r1, p2y = y1 + Math.sin(a2) * r1;
+    var p3x = x2 + Math.cos(a3) * r2, p3y = y2 + Math.sin(a3) * r2;
+    var p4x = x2 + Math.cos(a4) * r2, p4y = y2 + Math.sin(a4) * r2;
+
+    var ux = dx / d, uy = dy / d;
+    var nx = -uy, ny = ux;
+
+    var dp13 = Math.hypot(p3x - p1x, p3y - p1y);
+    var handleBase = lerp(0.46, 0.62, gapRatio);
+
+    function calcHandle(px, py, cx, cy, tangAng, rad, sideSign) {
+      var tx = Math.cos(tangAng), ty = Math.sin(tangAng);
+      var hDist = Math.abs((px - cx) * nx + (py - cy) * ny);
+      var towardAxis = -(tx * nx + ty * ny) * sideSign;
+      var maxL = dp13 * 0.52;
+      if (towardAxis > 0.06) {
+        var pinchCap = (hDist / (0.75 * towardAxis)) * lerp(0.88, 0.995, gapRatio);
+        if (pinchCap < maxL) maxL = pinchCap;
+      }
+      var L = Math.min(maxL, Math.max(rad * 0.45, dp13 * handleBase));
+      return { x: px + tx * L, y: py + ty * L };
+    }
+
+    var h1 = calcHandle(p1x, p1y, x1, y1, a1 - Math.PI * 0.5, r1, 1);
+    var h3 = calcHandle(p3x, p3y, x2, y2, a3 + Math.PI * 0.5, r2, 1);
+    var h4 = calcHandle(p4x, p4y, x2, y2, a4 - Math.PI * 0.5, r2, -1);
+    var h2 = calcHandle(p2x, p2y, x1, y1, a2 + Math.PI * 0.5, r1, -1);
+
+    ctx.beginPath();
+    ctx.moveTo(p1x, p1y);
+    ctx.bezierCurveTo(h1.x, h1.y, h3.x, h3.y, p3x, p3y);
+    ctx.lineTo(p4x, p4y);
+    ctx.bezierCurveTo(h4.x, h4.y, h2.x, h2.y, p2x, p2y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawVectorLiquidSet(ctx, list, fillCss, bridgeRatio) {
+    if (!list.length) return;
+    ctx.fillStyle = fillCss;
+
+    // 1. رسم الجسور السائلة بين القطرات المتقاربة بدقة فيكتور كاملة
+    for (var i = 0; i < list.length; i++) {
+      for (var j = i + 1; j < list.length; j++) {
+        var a = list[i], b = list[j];
+        var ra = (a.rx + a.ry) * 0.5;
+        var rb = (b.rx + b.ry) * 0.5;
+        drawVectorBridge(ctx, a.x, a.y, ra, b.x, b.y, rb, bridgeRatio || 2.15);
+      }
+    }
+
+    // 2. رسم القطرات نفسها كأقواس/أشكال بيضاوية فيكتور نقية تماماً
+    for (var k = 0; k < list.length; k++) {
+      var it = list[k];
+      if (it.rx < 0.6 || it.ry < 0.6) continue;
+      ctx.beginPath();
+      if (Math.abs(it.rx - it.ry) < 0.25) {
+        ctx.arc(it.x, it.y, it.rx, 0, Math.PI * 2);
+      } else {
+        ctx.ellipse(it.x, it.y, it.rx, it.ry, it.ang || 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+  }
+
   function runLiquidAnimation(fromEl, toEl, fromRect, toRect, opts, crossCtx) {
     return new Promise(function (resolve) {
       var vw = window.innerWidth;
       var vh = window.innerHeight;
-      var dpr = Math.min(2, window.devicePixelRatio || 1);
-
-      // خفض دقة حقل الميتابول فقط لـ 60 إطاراً سلساً على الهاتف
-      var fScale = Math.min(0.55, 420 / Math.max(vw, vh, 1));
-      var fw = Math.max(64, Math.ceil(vw * fScale));
-      var fh = Math.max(64, Math.ceil(vh * fScale));
-
-      var fieldCanvas = document.createElement("canvas");
-      fieldCanvas.width = fw;
-      fieldCanvas.height = fh;
-      var fCtx = fieldCanvas.getContext("2d", { willReadFrequently: true });
-
-      var outCanvas = document.createElement("canvas");
-      outCanvas.width = fw;
-      outCanvas.height = fh;
-      var outCtx = outCanvas.getContext("2d");
+      var dpr = Math.min(3, Math.max(1.5, window.devicePixelRatio || 1));
 
       var display = document.createElement("canvas");
       display.width = Math.ceil(vw * dpr);
@@ -124,12 +186,12 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
       var dCtx = display.getContext("2d");
       dCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      var sprite = getGradSprite();
       var col = opts.color || sampleElementColor(fromEl);
       var colRgb = col.r + "," + col.g + "," + col.b;
+      var solidColor = "rgb(" + colRgb + ")";
       var duration = opts.duration;
       var blobCount = opts.blobCount;
-      var hudMode = opts.hudMode; // "full" | "lines" | "liquid"
+      var hudMode = opts.hudMode;
 
       var sx = fromRect.left + fromRect.width * 0.5;
       var sy = fromRect.top + fromRect.height * 0.5;
@@ -142,31 +204,29 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
       var apexLift = clamp(sR * 2.15, 36, 86);
       var groundY = sy + dropDist;
 
-      // إعداد بيانات القطرات المنقسمة (تنتشر أفقياً وقطرياً مع تباين أحجام وانقسامات فرعية)
       var spreadX = clamp(Math.max(vw * 0.30, Math.abs(tx - sx) * 0.55), 85, vw * 0.40);
       var spreadY = clamp(Math.max(vh * 0.085, Math.abs(ty - sy) * 0.35), 34, vh * 0.16);
 
       var blobs = [];
       for (var i = 0; i < blobCount; i++) {
-        var frac = blobCount === 1 ? 0 : (i / (blobCount - 1)) * 2 - 1; // -1 .. +1
-        var jitterX = (Math.sin(i * 4.31) * 0.18);
+        var frac = blobCount === 1 ? 0 : (i / (blobCount - 1)) * 2 - 1;
+        var jitterX = Math.sin(i * 4.31) * 0.18;
         var ox = (frac + jitterX) * spreadX;
         var oy = Math.cos(i * 2.17 + 0.6) * spreadY;
-        var isSat = (i >= Math.max(3, blobCount - 2));
-        var baseRad = lerp(sR, tR, 0.5) * (isSat ? (0.36 + (i % 2) * 0.16) : (0.52 + ((i * 37) % 10) * 0.032));
+        var isSat = i >= Math.max(3, blobCount - 2);
+        var baseRad = lerp(sR, tR, 0.5) * (isSat ? (0.34 + (i % 2) * 0.15) : (0.50 + ((i * 37) % 10) * 0.032));
         blobs.push({
           ox: ox,
           oy: oy,
           driftX: Math.cos(i * 3.1) * 26,
           driftY: Math.sin(i * 2.7) * 24 - 16,
-          r: clamp(baseRad, 6.5, 26),
+          r: clamp(baseRad, 6, 26),
           phase: i * 1.47,
           parentIdx: isSat ? (i % Math.max(2, blobCount - 2)) : -1,
           splitDelay: isSat ? (0.14 + (i % 2) * 0.05) : (Math.abs(frac) * 0.03),
           numSeed: 120 + ((i * 217 + 93) % 820),
           numSpeed: 65 + (i % 4) * 38,
-          side: frac < 0 ? -1 : 1,
-          x: sx, y: sy, px: sx, py: sy, ang: 0, stretch: 1, curR: sR
+          x: sx, y: sy, px: sx, py: sy, ang: 0, curR: sR
         });
       }
 
@@ -186,88 +246,21 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
       var startTs = null;
       var rafId = null;
 
-      function stampBlob(x, y, rx, ry, angle) {
-        var rMult = 1.92;
-        var wr = rx * rMult * fScale;
-        var hr = ry * rMult * fScale;
-        fCtx.save();
-        fCtx.translate(x * fScale, y * fScale);
-        if (angle) fCtx.rotate(angle);
-        fCtx.drawImage(sprite, -wr, -hr, wr * 2, hr * 2);
-        fCtx.restore();
-      }
-
-      function renderMetaballField(list) {
-        if (!list.length) return;
-        // حساب أصغر مستطيل محيط بالقطرات لتسريع معالجة البكسلات 10 مرات
-        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (var i = 0; i < list.length; i++) {
-          var b = list[i];
-          var pad = Math.max(b.rx, b.ry) * 2.05;
-          if (b.x - pad < minX) minX = b.x - pad;
-          if (b.y - pad < minY) minY = b.y - pad;
-          if (b.x + pad > maxX) maxX = b.x + pad;
-          if (b.y + pad > maxY) maxY = b.y + pad;
-        }
-        var bx = Math.max(0, Math.floor(minX * fScale) - 2);
-        var by = Math.max(0, Math.floor(minY * fScale) - 2);
-        var bx2 = Math.min(fw, Math.ceil(maxX * fScale) + 2);
-        var by2 = Math.min(fh, Math.ceil(maxY * fScale) + 2);
-        var bw = bx2 - bx;
-        var bh = by2 - by;
-        if (bw <= 1 || bh <= 1) return;
-
-        fCtx.globalCompositeOperation = "source-over";
-        fCtx.clearRect(bx, by, bw, bh);
-        fCtx.globalCompositeOperation = "lighter";
-
-        for (var j = 0; j < list.length; j++) {
-          var it = list[j];
-          stampBlob(it.x, it.y, it.rx, it.ry, it.ang);
-        }
-
-        var imgData = fCtx.getImageData(bx, by, bw, bh);
-        var data = imgData.data;
-        var cr = col.r, cg = col.g, cb = col.b;
-
-        for (var k = 0; k < data.length; k += 4) {
-          var v = data[k];
-          if (v <= 112) {
-            data[k + 3] = 0;
-          } else if (v >= 140) {
-            data[k] = cr;
-            data[k + 1] = cg;
-            data[k + 2] = cb;
-            data[k + 3] = 255;
-          } else {
-            data[k] = cr;
-            data[k + 1] = cg;
-            data[k + 2] = cb;
-            data[k + 3] = ((v - 112) * 9.1) | 0;
-          }
-        }
-
-        outCtx.putImageData(imgData, bx, by);
-        dCtx.imageSmoothingEnabled = true;
-        dCtx.drawImage(outCanvas, bx, by, bw, bh, bx / fScale, by / fScale, bw / fScale, bh / fScale);
-      }
-
       function step(ts) {
         if (!startTs) startTs = ts;
         var elapsed = ts - startTs;
         var p = Math.min(1, elapsed / duration);
 
         dCtx.clearRect(0, 0, vw, vh);
+        display.style.opacity = "1";
         activeBlobs.length = 0;
 
-        // تلاشي ناعم للصفحتين تحت القطرات في حالة الانتقال بين صفحتين
         if (crossCtx && crossCtx.fromPage && crossCtx.toPage) {
           var swapP = smoothstep(0.42, 0.78, p);
           crossCtx.fromPage.style.opacity = String(1 - swapP);
           crossCtx.toPage.style.opacity = String(swapP);
         }
 
-        // تلاشي العنصر الأول داخل القطرة في البداية
         if (fromEl) {
           if (p < 0.08) {
             var fp = p / 0.08;
@@ -278,7 +271,7 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
           }
         }
 
-        // ====== المرحلة 1 و 2: الهبوط + القفزة + الخيط العمودي الرفيع (0.00 -> 0.35) ======
+        // ====== المرحلة 1 و 2: الهبوط + القفزة + الخيط العمودي النقي (0.00 -> 0.35) ======
         if (p < 0.35) {
           var cy = sy;
           var rx = sR, ry = sR;
@@ -286,54 +279,49 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
           var tetherTop = 0, tetherBot = 0, tetherAlpha = 0;
 
           if (p < 0.13) {
-            // هبوط مع تمدد عمودي طفيف وظهور الظل
             var t1 = p / 0.13;
             var e1 = easeInQuad(t1);
             cy = lerp(sy, groundY, e1);
-            rx = sR * (1 - 0.14 * Math.sin(t1 * Math.PI));
-            ry = sR * (1 + 0.18 * Math.sin(t1 * Math.PI));
-            shadowAlpha = smoothstep(0.03, 0.12, p) * 0.11;
+            rx = sR * (1 - 0.13 * Math.sin(t1 * Math.PI));
+            ry = sR * (1 + 0.16 * Math.sin(t1 * Math.PI));
+            shadowAlpha = smoothstep(0.03, 0.12, p) * 0.12;
           } else if (p < 0.26) {
-            // ارتداد سريع للأعلى مع شد الخيط الرفيع وانقطاعه داخل القطرة
             var t2 = (p - 0.13) / 0.13;
             var e2 = easeOutCubic(t2);
             cy = lerp(groundY, sy - apexLift, e2);
             var stretchPulse = Math.sin(t2 * Math.PI);
-            rx = sR * (1 - 0.18 * stretchPulse);
-            ry = sR * (1 + 0.24 * stretchPulse);
-            shadowAlpha = 0.11 * (1 - t2 * 0.45);
+            rx = sR * (1 - 0.15 * stretchPulse);
+            ry = sR * (1 + 0.20 * stretchPulse);
+            shadowAlpha = 0.12 * (1 - t2 * 0.45);
 
             if (t2 < 0.88) {
-              tetherAlpha = (1 - smoothstep(0.62, 0.88, t2)) * 0.78;
+              tetherAlpha = (1 - smoothstep(0.62, 0.88, t2)) * 0.82;
               tetherTop = cy + ry * 0.72;
               var snapUp = smoothstep(0.38, 0.86, t2);
               tetherBot = lerp(groundY + sR * 0.9, cy + ry * 0.85, snapUp);
             }
           } else {
-            // سقوط من القمة تمهيداً للانقسام السائل
             var t3 = (p - 0.26) / 0.09;
             var e3 = easeInQuad(t3);
             cy = lerp(sy - apexLift, sy + dropDist * 0.35, e3);
-            rx = sR * (1 - 0.14 * e3);
-            ry = sR * (1 + 0.22 * e3);
+            rx = sR * (1 - 0.12 * e3);
+            ry = sR * (1 + 0.18 * e3);
             shadowAlpha = 0.06 * (1 - t3);
           }
 
-          // رسم الظل الأرضي البيضاوي الناعم
           if (shadowAlpha > 0.005) {
             dCtx.save();
             dCtx.fillStyle = "rgba(" + colRgb + "," + shadowAlpha.toFixed(3) + ")";
             dCtx.beginPath();
-            dCtx.ellipse(sx, groundY + sR * 1.05, sR * 1.25, sR * 0.24, 0, 0, Math.PI * 2);
+            dCtx.ellipse(sx, groundY + sR * 1.05, sR * 1.25, sR * 0.23, 0, 0, Math.PI * 2);
             dCtx.fill();
             dCtx.restore();
           }
 
-          // رسم الخيط العمودي الرفيع
           if (tetherAlpha > 0.01 && tetherBot > tetherTop) {
             dCtx.save();
             dCtx.strokeStyle = "rgba(" + colRgb + "," + tetherAlpha.toFixed(3) + ")";
-            dCtx.lineWidth = 1.25;
+            dCtx.lineWidth = 1.15;
             dCtx.lineCap = "round";
             dCtx.beginPath();
             dCtx.moveTo(sx, tetherTop);
@@ -343,30 +331,23 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
           }
 
           activeBlobs.push({ x: sx, y: cy, rx: rx, ry: ry, ang: 0 });
-          if (p > 0.30) {
-            // تكوّن قاعدة القطرة قبل الانقسام (شكل الإجاصة في الثانية 1.37)
-            var bulbT = (p - 0.30) / 0.05;
-            activeBlobs.push({ x: sx - sR * 0.28 * bulbT, y: cy + sR * 0.52 * bulbT, rx: sR * 0.78 * bulbT, ry: sR * 0.72 * bulbT, ang: 0 });
-            activeBlobs.push({ x: sx + sR * 0.28 * bulbT, y: cy + sR * 0.52 * bulbT, rx: sR * 0.78 * bulbT, ry: sR * 0.72 * bulbT, ang: 0 });
+          if (p > 0.29) {
+            var bulbT = (p - 0.29) / 0.06;
+            var bRad = sR * (0.45 + 0.34 * bulbT);
+            activeBlobs.push({ x: sx - sR * 0.32 * bulbT, y: cy + sR * 0.56 * bulbT, rx: bRad, ry: bRad, ang: 0 });
+            activeBlobs.push({ x: sx + sR * 0.32 * bulbT, y: cy + sR * 0.56 * bulbT, rx: bRad, ry: bRad, ang: 0 });
           }
 
-          dCtx.save();
-          dCtx.globalAlpha = smoothstep(0.0, 0.06, p);
-          renderMetaballField(activeBlobs);
-          dCtx.restore();
+          display.style.opacity = String(smoothstep(0.0, 0.06, p));
+          drawVectorLiquidSet(dCtx, activeBlobs, solidColor, 2.2);
         }
-        // ====== المرحلة 3 و 4: الانقسام السائل + الشبكة والأرقام + الالتحام (0.35 -> 0.90) ======
+        // ====== المرحلة 3 و 4: الانقسام السائل بالفيكتور + الشبكة والأرقام + الالتحام (0.35 -> 0.90) ======
         else if (p < 0.90) {
-          var mp = (p - 0.35) / 0.55; // 0 .. 1
+          var mp = (p - 0.35) / 0.55;
           var travelE = easeInOutCubic(mp);
           var baseCenterX = lerp(sx, tx, travelE);
           var baseCenterY = lerp(sy + dropDist * 0.35, ty, travelE);
 
-          // منحنى الانفصال ثم التجمع
-          var openEnv = Math.sin(Math.pow(mp, 0.85) * Math.PI);
-          var spreadFactor = Math.pow(clamp(openEnv * 1.18, 0, 1), 0.78);
-
-          // تحديث مواقع القطرات
           for (var i = 0; i < blobs.length; i++) {
             var b = blobs[i];
             b.px = b.x;
@@ -374,12 +355,11 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
 
             var localMp = clamp((mp - b.splitDelay) / Math.max(0.25, 1 - b.splitDelay * 1.25), 0, 1);
             var localSpread = Math.pow(Math.sin(localMp * Math.PI), 0.72);
-
             var driftWave = Math.sin(mp * Math.PI * 1.6 + b.phase);
+
             var targetX = baseCenterX + b.ox * localSpread + b.driftX * driftWave * localSpread;
             var targetY = baseCenterY + b.oy * localSpread + b.driftY * Math.sin(mp * Math.PI) * localSpread;
 
-            // القطرات الفرعية تنفصل من قطرة أم في منتصف الحركة
             if (b.parentIdx >= 0 && mp < 0.45) {
               var par = blobs[b.parentIdx];
               var bud = smoothstep(0.18, 0.44, mp);
@@ -394,10 +374,10 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
             var vy = b.y - b.py;
             var spd = Math.hypot(vx, vy);
             if (spd > 0.3) b.ang = Math.atan2(vy, vx);
-            var stretch = 1 + clamp(spd * 0.022, 0, 0.36);
+            var stretch = 1 + clamp(spd * 0.015, 0, 0.18);
 
             var radNow = lerp(sR * 0.78, b.r, smoothstep(0.0, 0.22, mp));
-            radNow = lerp(radNow, tR * 0.85, smoothstep(0.76, 1.0, mp));
+            radNow = lerp(radNow, tR * 0.86, smoothstep(0.76, 1.0, mp));
             b.curR = radNow;
 
             activeBlobs.push({
@@ -409,21 +389,20 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
             });
           }
 
-          // ذيل القطرة السفلي أثناء الالتحام النهائي (0.82 -> 0.90)
           if (mp > 0.80) {
             var tailT = (mp - 0.80) / 0.20;
             var tailY = ty + lerp(tR * 1.65, 0, easeInOutCubic(tailT));
-            var tailR = tR * 0.38 * (1 - tailT * 0.75);
-            if (tailR > 2.2) {
-              activeBlobs.push({ x: tx, y: tailY, rx: tailR * 0.65, ry: tailR * 1.35, ang: 0 });
+            var tailR = tR * 0.34 * (1 - tailT * 0.65);
+            if (tailR > 1.8) {
+              activeBlobs.push({ x: tx, y: tailY, rx: tailR * 0.82, ry: tailR * 1.15, ang: 0 });
             }
           }
 
-          // 1. رسم شبكة الخطوط الهندسية الرفيعة خلف القطرات
+          // 1. شبكة الخطوط الهندسية الرفيعة الدقيقة
           var hudAlpha = smoothstep(0.06, 0.20, mp) * (1 - smoothstep(0.76, 0.90, mp));
           if (hudMode !== "liquid" && hudAlpha > 0.01) {
             dCtx.save();
-            dCtx.strokeStyle = "rgba(" + colRgb + "," + (0.20 * hudAlpha).toFixed(3) + ")";
+            dCtx.strokeStyle = "rgba(" + colRgb + "," + (0.22 * hudAlpha).toFixed(3) + ")";
             dCtx.lineWidth = 0.75;
             for (var a = 0; a < blobs.length; a++) {
               for (var c = a + 1; c < blobs.length; c++) {
@@ -436,9 +415,8 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
                 }
               }
             }
-            // أقواس دقيقة إضافية لحظة الانفصال
             if (mp < 0.38 && blobs.length >= 2) {
-              var arcAlpha = (1 - smoothstep(0.18, 0.38, mp)) * 0.42 * hudAlpha;
+              var arcAlpha = (1 - smoothstep(0.18, 0.38, mp)) * 0.44 * hudAlpha;
               dCtx.strokeStyle = "rgba(" + colRgb + "," + arcAlpha.toFixed(3) + ")";
               dCtx.lineWidth = 0.85;
               dCtx.beginPath();
@@ -449,23 +427,21 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
             dCtx.restore();
           }
 
-          // 2. رسم القطرات السائلة المتماسكة (Metaballs)
-          renderMetaballField(activeBlobs);
+          // 2. رسم القطرات وجسور الالتحام بدقة الفيكتور الكاملة
+          drawVectorLiquidSet(dCtx, activeBlobs, solidColor, 2.25);
 
-          // 3. رسم الأرقام التقنية المتغيرة بجانب كل قطرة منفصلة
+          // 3. الأرقام التقنية الحادة بجانب كل قطرة
           if (hudMode === "full" && hudAlpha > 0.02) {
             dCtx.save();
             dCtx.font = "600 9.5px monospace";
             dCtx.textBaseline = "middle";
-            dCtx.fillStyle = "rgba(" + colRgb + "," + (0.72 * hudAlpha).toFixed(3) + ")";
+            dCtx.fillStyle = "rgba(" + colRgb + "," + (0.76 * hudAlpha).toFixed(3) + ")";
             for (var ni = 0; ni < blobs.length; ni++) {
               var nb = blobs[ni];
               if (nb.parentIdx >= 0 && mp < 0.34) continue;
               var val = Math.abs(Math.floor(nb.numSeed + Math.sin(elapsed * 0.004 + nb.phase) * nb.numSpeed + mp * 420)) % 999;
               var txt = String(val).padStart(3, "0");
-              var offX = nb.x - nb.curR - 22;
-              var offY = nb.y - nb.curR * 0.55;
-              dCtx.fillText(txt, offX, offY);
+              dCtx.fillText(txt, nb.x - nb.curR - 22, nb.y - nb.curR * 0.55);
             }
             dCtx.restore();
           }
@@ -473,21 +449,18 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
         // ====== المرحلة 5: ارتداد قطرة الذيل الأخيرة واستقرار العنصر الهدف (0.90 -> 1.00) ======
         else {
           var ep = (p - 0.90) / 0.10;
-          var coreFade = 1 - smoothstep(0.18, 0.82, ep);
+          var coreFade = 1 - smoothstep(0.18, 0.84, ep);
 
           if (coreFade > 0.01) {
-            var bounceSc = lerp(1.08, 1.0, easeOutBack(ep));
+            var bounceSc = lerp(1.07, 1.0, easeOutBack(ep));
             activeBlobs.push({ x: tx, y: ty, rx: tR * bounceSc, ry: tR * (2 - bounceSc), ang: 0 });
             if (ep < 0.45) {
-              // لمسة قطرة الذيل الصغيرة تنغلق للأعلى
               var dt = ep / 0.45;
-              var dropY = ty + lerp(tR * 1.45, tR * 0.35, easeInQuad(dt));
-              activeBlobs.push({ x: tx, y: dropY, rx: 2.2 * (1 - dt * 0.6), ry: 5.5 * (1 - dt * 0.5), ang: 0 });
+              var dropY = ty + lerp(tR * 1.45, tR * 0.32, easeInQuad(dt));
+              activeBlobs.push({ x: tx, y: dropY, rx: 2.2 * (1 - dt * 0.55), ry: 5.0 * (1 - dt * 0.45), ang: 0 });
             }
-            dCtx.save();
-            dCtx.globalAlpha = coreFade;
-            renderMetaballField(activeBlobs);
-            dCtx.restore();
+            display.style.opacity = String(coreFade);
+            drawVectorLiquidSet(dCtx, activeBlobs, solidColor, 2.0);
           }
 
           if (toEl) {
@@ -536,7 +509,6 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
       if (p.startHiddenTo !== "yes" || !p.toEl) return;
       var toEl = document.getElementById(p.toEl);
       if (!toEl) return;
-      // إخفاء العنصر الهدف عند البدء فقط إذا كان في نفس الصفحة
       var fromPage = el && el.closest ? el.closest(".html-page") : null;
       var toPage = toEl.closest ? toEl.closest(".html-page") : null;
       if (fromPage && toPage && fromPage === toPage) {
@@ -563,7 +535,6 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
       if (fromEl.dataset._origOp === undefined) fromEl.dataset._origOp = fromEl.style.opacity || "1";
       if (toEl && toEl.dataset._origOp === undefined) toEl.dataset._origOp = toEl.style.opacity || "1";
 
-      // 1. وضع التجربة الحية داخل المحرر
       if (ctx && ctx.isPreview) {
         var fRectP = safeRect(fromEl);
         if (!fRectP) return Promise.resolve();
@@ -574,7 +545,6 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
         return runLiquidAnimation(fromEl, toEl, fRectP, tRectP, opts, null);
       }
 
-      // 2. كشف تلقائي هل العنصر الهدف في صفحة أخرى (انتقال عابر للصفحات)
       var fromPageEl = fromEl.closest ? fromEl.closest(".html-page") : null;
       var toPageEl = toEl && toEl.closest ? toEl.closest(".html-page") : null;
       var targetPageNum = toPageEl ? Number(toPageEl.dataset.page) : 0;
@@ -598,7 +568,6 @@ window.PLP_FX["click_liquid_node_morph"] = (function () {
         });
       }
 
-      // 3. انتقال سلس بين عنصرين داخل نفس الصفحة
       var fRect = safeRect(fromEl);
       var tRect = safeRect(toEl) || fRect;
       if (!fRect) return Promise.resolve();
