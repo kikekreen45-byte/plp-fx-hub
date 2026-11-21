@@ -110,6 +110,21 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return null;
   }
 
+  function matchesAnyId(target, ids) {
+    var cur = target;
+    while (cur && cur !== document.body && cur !== document) {
+      var cid = cur.id || "";
+      if (cid) {
+        var n = normId(cid);
+        for (var i = 0; i < ids.length; i++) {
+          if (cid === ids[i] || n === normId(ids[i])) return true;
+        }
+      }
+      cur = cur.parentElement;
+    }
+    return false;
+  }
+
   function ensureFallbackArabicFont() {
     if (document.getElementById("jnh-fallback-font-link")) return;
     var link = document.createElement("link");
@@ -119,35 +134,29 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     document.head.appendChild(link);
   }
 
-  // التقاط خط PixelLab المحمّل في التطبيق تلقائياً (liveInputs + @font-face + document.fonts)
   function resolveProjectFont(origId, customFontName) {
     var fallbackStack = "'Baloo Bhaijaan 2', 'Cairo', 'Tajawal', system-ui, sans-serif";
     if (customFontName && String(customFontName).trim()) {
       return "'" + String(customFontName).trim().replace(/['"]/g, "") + "', " + fallbackStack;
     }
-
     var li = (window.BRAIN && window.BRAIN.liveInputs) || {};
     var nOrig = normId(origId);
 
-    // 1. مطابقة مباشرة للعنصر في liveInputs
     for (var k in li) {
       if ((k === origId || normId(k) === nOrig) && li[k] && li[k].style && li[k].style.cssFontFamily) {
         return "'" + li[k].style.cssFontFamily + "', " + fallbackStack;
       }
     }
-    // 2. أي خط مسجّل لعناصر h3 في liveInputs
     for (var k3 in li) {
       if (k3.indexOf("h3") === 0 && li[k3] && li[k3].style && li[k3].style.cssFontFamily) {
         return "'" + li[k3].style.cssFontFamily + "', " + fallbackStack;
       }
     }
-    // 3. أي خط PixelLab مسجّل في المشروع (مثل خط h1p1إسمك_الكريم_..)
     for (var ka in li) {
       if (li[ka] && li[ka].style && li[ka].style.cssFontFamily) {
         return "'" + li[ka].style.cssFontFamily + "', " + fallbackStack;
       }
     }
-    // 4. فحص قواعد @font-face المضمّنة في الصفحة
     try {
       for (var s = 0; s < document.styleSheets.length; s++) {
         var rules;
@@ -163,7 +172,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         }
       }
     } catch (e) {}
-    // 5. فحص document.fonts
     try {
       if (document.fonts && document.fonts.forEach) {
         var found = "";
@@ -175,7 +183,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         if (found) return "'" + found + "', " + fallbackStack;
       }
     } catch (e) {}
-
     return fallbackStack;
   }
 
@@ -186,20 +193,21 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     st.id = "jnh-system-styles";
     st.textContent =
       ".jnh-scroll-viewport{position:absolute;left:0;top:0;width:100%;overflow-y:auto;overflow-x:hidden;" +
+      "display:flex;flex-direction:column;align-items:center;direction:ltr;" +
       "-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scrollbar-width:none;z-index:25;" +
-      "box-sizing:border-box;touch-action:pan-y;pointer-events:auto;}" +
+      "box-sizing:border-box;touch-action:pan-y;pointer-events:auto;will-change:transform,opacity,filter;}" +
       ".jnh-scroll-viewport::-webkit-scrollbar{display:none;}" +
-      ".jnh-card-slot{position:relative;margin-left:auto;margin-right:auto;will-change:transform,opacity,filter;}" +
+      ".jnh-card-slot{position:relative;flex:0 0 auto;overflow:hidden;direction:ltr;will-change:transform,opacity,filter;}" +
       ".jnh-btn-press{transition:transform 210ms cubic-bezier(.34,1.56,.64,1),filter 180ms ease;cursor:pointer;-webkit-tap-highlight-color:transparent;}" +
       ".jnh-btn-press:active{transform:scale(0.86) !important;}" +
       ".jnh-icon-overlay{position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:8;}" +
       ".jnh-icon-overlay svg{width:54%;height:54%;display:block;}" +
       ".jnh-text-overlay{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;" +
       "direction:rtl;pointer-events:none;z-index:9;box-sizing:border-box;padding:2px 8px;line-height:1.35;white-space:pre-line;word-break:break-word;}" +
-      ".jnh-backdrop{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity 320ms cubic-bezier(.22,1,.36,1),backdrop-filter 320ms ease;}" +
-      ".jnh-backdrop.on{opacity:1;pointer-events:auto;}" +
+      ".jnh-fixed-backdrop{position:fixed;inset:0;opacity:0;pointer-events:none;transition:opacity 300ms cubic-bezier(.22,1,.36,1),backdrop-filter 300ms ease;}" +
+      ".jnh-fixed-backdrop.on{opacity:1;pointer-events:auto;}" +
       "@keyframes jnhPopBurst{0%{transform:translate(-50%,-50%) scale(.45);opacity:.95}100%{transform:translate(-50%,-50%) scale(1.95);opacity:0}}" +
-      "@keyframes jnhFloatPlus{0%{transform:translate(-50%,0) scale(.7);opacity:0}20%{transform:translate(-50%,-16px) scale(1.12);opacity:1}100%{transform:translate(-50%,-68px) scale(.92);opacity:0}}" +
+      "@keyframes jnhFloatPlus{0%{transform:translate(-50%,0) scale(.7);opacity:0}20%{transform:translate(-50%,-14px) scale(1.12);opacity:1}100%{transform:translate(-50%,-54px) scale(.92);opacity:0}}" +
       "@keyframes jnhCountBump{0%{transform:scale(1)}35%{transform:scale(1.22)}100%{transform:scale(1)}}" +
       "@keyframes jnhIconWiggle{0%{transform:scale(1) rotate(0deg)}25%{transform:scale(1.18) rotate(-10deg)}55%{transform:scale(1.12) rotate(8deg)}80%{transform:scale(1.04) rotate(-3deg)}100%{transform:scale(1) rotate(0deg)}}" +
       ".jnh-count-bump{animation:jnhCountBump 290ms cubic-bezier(.34,1.56,.64,1);}" +
@@ -437,7 +445,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     var wrap = pageEl.querySelector(".plp-wrapper") || pageEl;
     var grp = document.createElement("div");
     grp.className = "jnh-auto-group";
-    grp.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;";
+    grp.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;";
     var kids = Array.prototype.slice.call(wrap.querySelectorAll("[id]"));
     for (var j = 0; j < kids.length; j++) {
       if ((kids[j].id || "").indexOf(prefix) === 0 && kids[j].parentElement === wrap) {
@@ -449,16 +457,28 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return grp;
   }
 
-  function measureKidsUnionRect(container) {
+  // قياس الحدود الفعلية لحبر العناصر داخل المجموعة (دون احتساب أي هوامش شفافة)
+  function measureInkUnionRect(container) {
     var kids = container.querySelectorAll("[data-jnh-id],[id]");
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (var i = 0; i < kids.length; i++) {
-      var r = kids[i].getBoundingClientRect();
+      var k = kids[i];
+      if (k.classList.contains("jnh-text-overlay") || k.classList.contains("jnh-icon-overlay")) continue;
+      var img = k.querySelector("img");
+      var r = (img || k).getBoundingClientRect();
       if (r.width > 1 && r.height > 1) {
-        if (r.left < minX) minX = r.left;
-        if (r.top < minY) minY = r.top;
-        if (r.right > maxX) maxX = r.right;
-        if (r.bottom > maxY) maxY = r.bottom;
+        var l = r.left, t = r.top, ri = r.right, b = r.bottom;
+        if (img) {
+          var f = getInkFrac(k);
+          l = r.left + r.width * f.u0;
+          t = r.top + r.height * f.v0;
+          ri = r.left + r.width * f.u1;
+          b = r.top + r.height * f.v1;
+        }
+        if (l < minX) minX = l;
+        if (t < minY) minY = t;
+        if (ri > maxX) maxX = ri;
+        if (b > maxY) maxY = b;
       }
     }
     if (!isFinite(minX)) {
@@ -468,21 +488,28 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return { left: minX, top: minY, right: maxX, bottom: maxY, width: maxX - minX, height: maxY - minY };
   }
 
-  // تطبيع المجموعة وإلغاء التصغير الافتراضي للطبقة العائمة ثم ضبطها على العرض المستهدف بدقة 100%
-  function normalizeAndScaleGroup(groupEl, slotEl, scaleX, scaleY, targetW) {
-    slotEl.style.position = "relative";
+  // تطبيع المجموعة وتمركزها بدقة أقل من بكسل داخل الصندوق الهدف
+  function normalizeAndScaleGroup(groupEl, slotEl, scaleX, scaleY, targetW, maxH) {
+    slotEl.style.direction = "ltr";
     slotEl.style.width = "10px";
     slotEl.style.height = "10px";
 
     var innerEl = document.createElement("div");
-    innerEl.style.cssText = "position:absolute;left:0;top:0;transform-origin:0 0;";
+    innerEl.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;direction:ltr;";
 
     var shiftEl = document.createElement("div");
-    shiftEl.style.cssText = "position:absolute;left:0;top:0;";
+    shiftEl.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;direction:ltr;";
 
+    groupEl.style.transition = "none";
+    groupEl.style.animation = "none";
     groupEl.style.position = "absolute";
     groupEl.style.left = "0px";
     groupEl.style.top = "0px";
+    groupEl.style.right = "auto";
+    groupEl.style.bottom = "auto";
+    groupEl.style.width = "0px";
+    groupEl.style.height = "0px";
+    groupEl.style.margin = "0";
     groupEl.style.transform = "none";
     groupEl.style.display = "block";
     groupEl.style.visibility = "visible";
@@ -492,8 +519,10 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     innerEl.appendChild(shiftEl);
     slotEl.appendChild(innerEl);
 
+    void innerEl.offsetWidth;
+
     var innerR = innerEl.getBoundingClientRect();
-    var uR = measureKidsUnionRect(groupEl);
+    var uR = measureInkUnionRect(groupEl);
     var natW = Math.max(40, uR.width / scaleX);
     var natH = Math.max(40, uR.height / scaleY);
     var offX = (uR.left - innerR.left) / scaleX;
@@ -503,12 +532,23 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     shiftEl.style.top = (-offY) + "px";
 
     var fitScale = targetW / natW;
+    if (maxH && natH * fitScale > maxH) fitScale = maxH / natH;
     var finalW = natW * fitScale;
     var finalH = natH * fitScale;
 
-    innerEl.style.transform = "scale(" + fitScale.toFixed(4) + ")";
-    slotEl.style.width = Math.round(finalW) + "px";
-    slotEl.style.height = Math.round(finalH) + "px";
+    innerEl.style.transform = "scale(" + fitScale.toFixed(5) + ")";
+    slotEl.style.width = finalW.toFixed(2) + "px";
+    slotEl.style.height = finalH.toFixed(2) + "px";
+
+    // تحقق نهائي بعد التحجيم لضمان تمركز 100% بلا أي إزاحة جانبية
+    void slotEl.offsetWidth;
+    var sr = slotEl.getBoundingClientRect();
+    var vr = measureInkUnionRect(groupEl);
+    var errX = ((vr.left + vr.right) * 0.5 - (sr.left + sr.right) * 0.5) / Math.max(0.01, scaleX * fitScale);
+    var errY = ((vr.top + vr.bottom) * 0.5 - (sr.top + sr.bottom) * 0.5) / Math.max(0.01, scaleY * fitScale);
+    if (Math.abs(errX) > 0.35) shiftEl.style.left = (-offX - errX).toFixed(2) + "px";
+    if (Math.abs(errY) > 0.35) shiftEl.style.top = (-offY - errY).toFixed(2) + "px";
+
     return { w: finalW, h: finalH, fitScale: fitScale, innerEl: innerEl };
   }
 
@@ -527,7 +567,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     var ghost = document.createElement("div");
     ghost.style.cssText =
       "position:fixed;left:0;top:0;display:flex;align-items:center;justify-content:center;" +
-      "pointer-events:none;z-index:985;will-change:transform,width,height;";
+      "pointer-events:none;z-index:990;will-change:transform,width,height;";
     ghost.innerHTML = LUCIDE_SVG[iconKey] || LUCIDE_SVG.palm;
     var svg = ghost.querySelector("svg");
     if (svg) { svg.style.width = "54%"; svg.style.height = "54%"; }
@@ -571,8 +611,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
   function spawnTapBurst(parentEl, x, y, colorCss, showPlusOne) {
     var ring = document.createElement("div");
     ring.style.cssText =
-      "position:absolute;left:" + x + "px;top:" + y + "px;width:64px;height:64px;border-radius:999px;" +
-      "border:3.5px solid " + colorCss + ";pointer-events:none;z-index:40;animation:jnhPopBurst 420ms cubic-bezier(.22,1,.36,1) forwards;";
+      "position:absolute;left:" + x + "px;top:" + y + "px;width:44px;height:44px;border-radius:999px;" +
+      "border:2.5px solid " + colorCss + ";pointer-events:none;z-index:40;animation:jnhPopBurst 420ms cubic-bezier(.22,1,.36,1) forwards;";
     parentEl.appendChild(ring);
     setTimeout(function () { if (ring.parentNode) ring.parentNode.removeChild(ring); }, 450);
 
@@ -580,8 +620,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var fl = document.createElement("div");
       fl.textContent = "+1";
       fl.style.cssText =
-        "position:absolute;left:" + x + "px;top:" + (y - 16) + "px;font-weight:900;font-size:34px;color:" + colorCss + ";" +
-        "font-family:system-ui,sans-serif;pointer-events:none;z-index:42;text-shadow:0 2px 10px rgba(0,0,0,0.22);" +
+        "position:absolute;left:" + x + "px;top:" + (y - 10) + "px;font-weight:900;font-size:22px;color:" + colorCss + ";" +
+        "font-family:system-ui,sans-serif;pointer-events:none;z-index:42;text-shadow:0 2px 8px rgba(0,0,0,0.22);" +
         "animation:jnhFloatPlus 560ms cubic-bezier(.22,1,.36,1) forwards;";
       parentEl.appendChild(fl);
       setTimeout(function () { if (fl.parentNode) fl.parentNode.removeChild(fl); }, 590);
@@ -595,10 +635,26 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     iconEl.classList.add("jnh-icon-wiggle");
   }
 
+  function isDhikrTabActiveNow() {
+    if (window.PLP_H0_BAR && typeof window.PLP_H0_BAR.activeTab === "number") {
+      return window.PLP_H0_BAR.activeTab === 1;
+    }
+    var bg1 = findEl("h0p1صورة5");
+    var bg2 = findEl("h0p1صورة4");
+    if (bg1 && bg2) {
+      var op1 = parseFloat(getComputedStyle(bg1).opacity || "1");
+      var op2 = parseFloat(getComputedStyle(bg2).opacity || "1");
+      if (op1 < 0.2 && op2 > 0.5) return false;
+    }
+    return true;
+  }
+
   function mountJannahSystem(pageEl, playIntro, params) {
     if (!pageEl) return;
     if (pageEl._jnhState) {
-      if (playIntro) pageEl._jnhState.playCardsIntro();
+      var shouldShow = isDhikrTabActiveNow();
+      pageEl._jnhState.setDhikrViewVisible(shouldShow, !playIntro);
+      if (playIntro && shouldShow) pageEl._jnhState.playCardsIntro();
       return;
     }
 
@@ -619,11 +675,17 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       return;
     }
 
+    // تنظيف أي نوافذ ثابتة قديمة قبل إعادة التركيب
+    ["jnh-modal-backdrop", "jnh-modal-shell", "jnh-hadith-backdrop", "jnh-hadith-shell"].forEach(function (oid) {
+      var old = document.getElementById(oid);
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+    });
+
     injectStyles();
     loadCounts();
 
     var p = params || {};
-    var cardWidthFrac = clamp((parseFloat(p.cardWidthPct) || 88) / 100, 0.55, 0.96);
+    var cardWidthFrac = clamp((parseFloat(p.cardWidthPct) || 88) / 100, 0.55, 0.94);
     var cardGapPx = clamp(parseFloat(p.cardGap) || 38, 14, 100);
     var customFont = p.fontName || "";
 
@@ -632,8 +694,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     var scaleX = wr.width / wrapW;
     var scaleY = wr.height / wrapH;
 
-    // حساب الارتفاع المرئي الفعلي داخل الشاشة لضمان عمل السحب والتمرير دائماً
-    var vpH = window.innerHeight || document.documentElement.clientHeight || 800;
+    var vpW = window.innerWidth || document.documentElement.clientWidth || 380;
+    var vpH = window.innerHeight || document.documentElement.clientHeight || 760;
     var visibleWrapH = Math.round(Math.min(wrapH, Math.max(300, (vpH - Math.max(0, wr.top)) / scaleY)));
 
     var f1Orig = findGroupContainer("h3f1", pageEl);
@@ -654,17 +716,18 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
     [f1Orig, f2Orig, f3Orig].forEach(function (g) {
       if (!g) return;
+      g.style.transition = "none";
       g.style.display = "block";
       g.style.visibility = "hidden";
       g.style.opacity = "1";
     });
 
-    // 1. إنشاء منطقة السحب العمودي بالارتفاع المرئي الدقيق مع مسافة سفلية فوق h0
+    // 1. حاوية السحب العمودي المتمركزة تماماً للبطاقات الأربع
     var scroller = document.createElement("div");
     scroller.className = "jnh-scroll-viewport";
     scroller.style.height = visibleWrapH + "px";
-    scroller.style.paddingTop = Math.round(wrapW * 0.065) + "px";
-    scroller.style.paddingBottom = Math.round(visibleWrapH * 0.24) + "px";
+    scroller.style.paddingTop = Math.round(wrapW * 0.06) + "px";
+    scroller.style.paddingBottom = Math.round(visibleWrapH * 0.25) + "px";
     wrap.appendChild(scroller);
 
     var state = {
@@ -673,34 +736,38 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       modalOpen: false,
       hadithOpen: false,
       hadithAnchorEl: null,
+      dhikrVisible: true,
       lastTapTs: 0,
       cards: [],
       scroller: scroller
     };
 
-    // 2. تجهيز الواجهة العائمة h3f2 (82% من عرض الشاشة وممركزة في المنطقة المرئية)
-    var modalBackdrop = null, modalShell = null, f2Refs = null, modalDims = { w: 780, h: 900 };
-    var modalCenterY = Math.round(visibleWrapH * 0.45);
+    // 2. تجهيز الواجهة العائمة h3f2 في منتصف الشاشة دائماً (position: fixed على document.body)
+    var modalBackdrop = null, modalShell = null, f2Refs = null, modalDims = { w: 320, h: 380 };
     if (f2Orig) {
       modalBackdrop = document.createElement("div");
-      modalBackdrop.className = "jnh-backdrop";
+      modalBackdrop.id = "jnh-modal-backdrop";
+      modalBackdrop.className = "jnh-fixed-backdrop";
       modalBackdrop.style.cssText =
-        "z-index:140;height:" + visibleWrapH + "px;background:rgba(12,12,15,0.62);" +
-        "backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
-      wrap.appendChild(modalBackdrop);
+        "z-index:920;background:rgba(12,12,15,0.64);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
+      document.body.appendChild(modalBackdrop);
 
       modalShell = document.createElement("div");
+      modalShell.id = "jnh-modal-shell";
       modalShell.style.cssText =
-        "position:absolute;left:50%;top:" + modalCenterY + "px;z-index:150;display:none;opacity:0;pointer-events:none;" +
-        "transform:translate(-50%,-50%) scale(0.76);will-change:transform,opacity,filter;";
-      wrap.appendChild(modalShell);
+        "position:fixed;left:50%;top:50%;z-index:930;display:none;opacity:0;pointer-events:none;" +
+        "transform:translate(-50%,-50%) scale(0.76);will-change:transform,opacity,filter;direction:ltr;";
+      document.body.appendChild(modalShell);
 
       modalShell.style.display = "block";
       modalShell.style.visibility = "hidden";
-      modalDims = normalizeAndScaleGroup(f2Orig, modalShell, scaleX, scaleY, wrapW * 0.82);
-      modalShell.style.position = "absolute";
+      modalShell.style.transform = "translate(-50%,-50%) scale(1)";
+      var targetModalW = Math.min(vpW * 0.86, 430);
+      var maxModalH = vpH * 0.78;
+      modalDims = normalizeAndScaleGroup(f2Orig, modalShell, 1, 1, targetModalW, maxModalH);
+      modalShell.style.position = "fixed";
       modalShell.style.left = "50%";
-      modalShell.style.top = modalCenterY + "px";
+      modalShell.style.top = "50%";
       modalShell.style.display = "none";
       modalShell.style.visibility = "visible";
 
@@ -725,26 +792,29 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       });
     }
 
-    // 3. تجهيز نافذة الحديث المنبثقة h3f3 (80% من عرض الشاشة)
-    var hadithBackdrop = null, hadithShell = null, f3Refs = null, hadithDims = { w: 760, h: 300 };
+    // 3. تجهيز نافذة الحديث المنبثقة h3f3 مباشرة فوق الشاشة لتنبثق قرب أيقونة textalignend بدقة
+    var hadithBackdrop = null, hadithShell = null, f3Refs = null, hadithDims = { w: 320, h: 140 };
     if (f3Orig) {
       hadithBackdrop = document.createElement("div");
-      hadithBackdrop.className = "jnh-backdrop";
+      hadithBackdrop.id = "jnh-hadith-backdrop";
+      hadithBackdrop.className = "jnh-fixed-backdrop";
       hadithBackdrop.style.cssText =
-        "z-index:240;height:" + visibleWrapH + "px;background:rgba(10,10,13,0.34);" +
-        "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
-      wrap.appendChild(hadithBackdrop);
+        "z-index:950;background:rgba(10,10,13,0.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
+      document.body.appendChild(hadithBackdrop);
 
       hadithShell = document.createElement("div");
+      hadithShell.id = "jnh-hadith-shell";
       hadithShell.style.cssText =
-        "position:absolute;left:0;top:0;z-index:250;display:none;opacity:0;pointer-events:none;" +
-        "will-change:transform,opacity,filter;";
-      wrap.appendChild(hadithShell);
+        "position:fixed;left:0;top:0;z-index:960;display:none;opacity:0;pointer-events:none;" +
+        "will-change:transform,opacity,filter;direction:ltr;";
+      document.body.appendChild(hadithShell);
 
       hadithShell.style.display = "block";
       hadithShell.style.visibility = "hidden";
-      hadithDims = normalizeAndScaleGroup(f3Orig, hadithShell, scaleX, scaleY, wrapW * 0.80);
-      hadithShell.style.position = "absolute";
+      var targetHadithW = Math.min(vpW * 0.86, 430);
+      var maxHadithH = vpH * 0.44;
+      hadithDims = normalizeAndScaleGroup(f3Orig, hadithShell, 1, 1, targetHadithW, maxHadithH);
+      hadithShell.style.position = "fixed";
       hadithShell.style.display = "none";
       hadithShell.style.visibility = "visible";
 
@@ -776,30 +846,29 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         weight: "700", lineHeight: 1.48, minFontSize: 16, expand: 10
       });
 
-      var liveWr = wrap.getBoundingClientRect();
-      var sx = liveWr.width / wrapW;
-      var sy = liveWr.height / wrapH;
+      var curVpW = window.innerWidth || vpW;
+      var curVpH = window.innerHeight || vpH;
       var aR = anchorEl.getBoundingClientRect();
 
-      var ax = (aR.left + aR.width * 0.5 - liveWr.left) / sx;
-      var ayTop = (aR.top - liveWr.top) / sy;
-      var ayBot = (aR.bottom - liveWr.top) / sy;
+      var ax = aR.left + aR.width * 0.5;
+      var ayTop = aR.top;
+      var ayBot = aR.bottom;
       var ayMid = (ayTop + ayBot) * 0.5;
 
       var popW = hadithDims.w;
       var popH = hadithDims.h;
-      var margin = 24;
-      var safeBottomLimit = visibleWrapH - Math.round(visibleWrapH * 0.17);
+      var margin = 12;
+      var safeBottomLimit = curVpH - 104;
 
       var spaceBelow = safeBottomLimit - ayBot;
       var spaceAbove = ayTop - margin;
-      var placeBelow = (spaceBelow >= popH + 22) || (spaceBelow >= spaceAbove);
+      var placeBelow = (spaceBelow >= popH + 14) || (spaceBelow >= spaceAbove);
 
-      var left = clamp(ax - popW * 0.5, margin, Math.max(margin, wrapW - popW - margin));
-      var top = placeBelow ? (ayBot + 22) : (ayTop - popH - 22);
+      var left = clamp(ax - popW * 0.5, margin, Math.max(margin, curVpW - popW - margin));
+      var top = placeBelow ? (ayBot + 14) : (ayTop - popH - 14);
       top = clamp(top, margin, Math.max(margin, safeBottomLimit - popH));
 
-      var ox = clamp(ax - left, 24, popW - 24);
+      var ox = clamp(ax - left, 18, popW - 18);
       var oy = clamp(ayMid - top, 0, popH);
 
       hadithShell.style.left = Math.round(left) + "px";
@@ -808,7 +877,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       hadithShell.style.visibility = "visible";
       hadithShell.style.opacity = "0";
       hadithShell.style.filter = "blur(8px)";
-      hadithShell.style.transform = "scale(0.16) translateY(" + (placeBelow ? "-18px" : "18px") + ")";
+      hadithShell.style.transform = "scale(0.16) translateY(" + (placeBelow ? "-12px" : "12px") + ")";
       hadithShell.style.pointerEvents = "auto";
 
       if (hBox) {
@@ -884,6 +953,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       modalShell.style.display = "block";
       modalShell.style.visibility = "hidden";
       modalShell.style.transition = "none";
+      modalShell.style.left = "50%";
+      modalShell.style.top = "50%";
       modalShell.style.transform = "translate(-50%,-50%) scale(1)";
 
       var tBox = setCenteredText(f2Refs.title, card.title, {
@@ -898,6 +969,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var icTxt = setCenteredIcon(f2Refs.iconText, "textAlignEnd", colIcon2);
       renderModalCounter(card.key, false);
 
+      // قياس مواقع الدوائر المستهدفة في h3f2 بعد التمركز في منتصف الشاشة
       var dstRewardRect = f2Refs.iconReward ? f2Refs.iconReward.getBoundingClientRect() : null;
       var dstTextRect   = f2Refs.iconText ? f2Refs.iconText.getBoundingClientRect() : null;
       var dstModalRect  = modalShell.getBoundingClientRect();
@@ -905,18 +977,15 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       if (icRew) icRew.style.opacity = "0";
       if (icTxt) icTxt.style.opacity = "0";
 
-      var liveWr = wrap.getBoundingClientRect();
-      var sx = liveWr.width / wrapW;
-      var sy = liveWr.height / wrapH;
-      var dxStart = (srcCardRect.left + srcCardRect.width * 0.5 - (dstModalRect.left + dstModalRect.width * 0.5)) / sx;
-      var dyStart = (srcCardRect.top + srcCardRect.height * 0.5 - (dstModalRect.top + dstModalRect.height * 0.5)) / sy;
+      var dxStart = (srcCardRect.left + srcCardRect.width * 0.5) - (dstModalRect.left + dstModalRect.width * 0.5);
+      var dyStart = (srcCardRect.top + srcCardRect.height * 0.5) - (dstModalRect.top + dstModalRect.height * 0.5);
 
       modalShell.style.visibility = "visible";
       modalShell.style.opacity = "0";
       modalShell.style.filter = "blur(10px)";
       modalShell.style.pointerEvents = "auto";
       modalShell.style.transform =
-        "translate(calc(-50% + " + Math.round(dxStart * 0.45) + "px), calc(-50% + " + Math.round(dyStart * 0.45) + "px)) scale(0.72)";
+        "translate(calc(-50% + " + Math.round(dxStart * 0.35) + "px), calc(-50% + " + Math.round(dyStart * 0.35) + "px)) scale(0.74)";
 
       [tBox, dBox].forEach(function (el) {
         if (!el) return;
@@ -963,16 +1032,16 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       });
     }
 
-    function closeModal() {
+    function closeModal(silent) {
       if (!state.modalOpen || !modalShell) return;
       if (state.hadithOpen) closeHadith();
 
       var card = CARDS_DATA[state.activeCardIdx];
       var cardRefs = state.activeCardRefs;
       state.modalOpen = false;
-      playSfx("closeModal");
+      if (!silent) playSfx("closeModal");
 
-      if (cardRefs && f2Refs) {
+      if (!silent && cardRefs && f2Refs) {
         var fromRew = f2Refs.iconReward ? f2Refs.iconReward.getBoundingClientRect() : null;
         var toRew   = cardRefs.btnReward ? cardRefs.btnReward.getBoundingClientRect() : null;
         var fromTxt = f2Refs.iconText ? f2Refs.iconText.getBoundingClientRect() : null;
@@ -989,15 +1058,20 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
       modalBackdrop.classList.remove("on");
       modalShell.style.pointerEvents = "none";
-      modalShell.style.transition =
-        "transform 280ms cubic-bezier(.4,0,.2,1), opacity 230ms ease, filter 230ms ease";
+      modalShell.style.transition = silent
+        ? "none"
+        : "transform 280ms cubic-bezier(.4,0,.2,1), opacity 230ms ease, filter 230ms ease";
       modalShell.style.opacity = "0";
       modalShell.style.filter = "blur(8px)";
       modalShell.style.transform = "translate(-50%,-50%) scale(0.76)";
 
-      setTimeout(function () {
-        if (!state.modalOpen && modalShell) modalShell.style.display = "none";
-      }, 290);
+      if (silent) {
+        modalShell.style.display = "none";
+      } else {
+        setTimeout(function () {
+          if (!state.modalOpen && modalShell) modalShell.style.display = "none";
+        }, 290);
+      }
     }
 
     if (f2Refs) {
@@ -1032,11 +1106,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         if (src && modalShell) {
           var sR = src.getBoundingClientRect();
           var mR = modalShell.getBoundingClientRect();
-          var liveWr = wrap.getBoundingClientRect();
-          var sx = liveWr.width / wrapW;
-          var sy = liveWr.height / wrapH;
-          var bx = (sR.left + sR.width * 0.5 - mR.left) / sx;
-          var by = (sR.top + sR.height * 0.5 - mR.top) / sy;
+          var bx = sR.left + sR.width * 0.5 - mR.left;
+          var by = sR.top + sR.height * 0.5 - mR.top;
           spawnTapBurst(modalShell, bx, by, colCount2, true);
         }
       };
@@ -1045,7 +1116,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       if (f2Refs.plusBg && f2Refs.plusBg !== f2Refs.plusBtn) f2Refs.plusBg.addEventListener("click", onIncrement);
     }
 
-    // 4. إنشاء البطاقات الأربع بالعرض الكامل (88% من الشاشة) داخل قائمة السحب العمودي
+    // 4. إنشاء البطاقات الأربع متمركزة 100% داخل حاوية السحب العمودي
     var targetCardW = wrapW * cardWidthFrac;
     CARDS_DATA.forEach(function (card, idx) {
       var slot = document.createElement("div");
@@ -1060,7 +1131,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         node.removeAttribute("id");
       });
 
-      normalizeAndScaleGroup(clone, slot, scaleX, scaleY, targetCardW);
+      normalizeAndScaleGroup(clone, slot, scaleX, scaleY, targetCardW, null);
 
       var elTitle  = findEl("h3f1نخلة", clone);
       var elDeed   = findEl("h3f1ت", clone);
@@ -1100,7 +1171,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
     f1Orig.style.display = "none";
 
-    // إعادة ضبط أحجام وتوسيط النصوص تلقائياً فور اكتمال تحميل الخط
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
         scroller.querySelectorAll(".jnh-text-overlay").forEach(function (box) {
@@ -1172,9 +1242,93 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       });
     }
 
+    // 5. ربط الواجهة حصراً بأيقونة الشريط السفلي h0p1صورة6 (الذّكر) وإخفاؤها عند اختيار h0p1صورة7 (روضتي)
+    function setDhikrViewVisible(show, instant) {
+      if (!show) {
+        if (state.hadithOpen) closeHadith();
+        if (state.modalOpen) closeModal(true);
+      }
+      var wasVisible = state.dhikrVisible;
+      state.dhikrVisible = !!show;
+
+      if (show) {
+        scroller.style.visibility = "visible";
+        scroller.style.pointerEvents = "auto";
+        if (instant) {
+          scroller.style.transition = "none";
+          scroller.style.opacity = "1";
+          scroller.style.filter = "blur(0px)";
+          scroller.style.transform = "translateX(0) scale(1)";
+        } else {
+          if (!wasVisible) {
+            scroller.style.transition = "none";
+            scroller.style.opacity = "0";
+            scroller.style.filter = "blur(8px)";
+            scroller.style.transform = "translateX(26px) scale(0.96)";
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                scroller.style.transition =
+                  "opacity 320ms ease, transform 400ms cubic-bezier(.22,1,.36,1), filter 320ms ease";
+                scroller.style.opacity = "1";
+                scroller.style.filter = "blur(0px)";
+                scroller.style.transform = "translateX(0) scale(1)";
+              });
+            });
+            playCardsIntro();
+          }
+        }
+      } else {
+        scroller.style.pointerEvents = "none";
+        if (instant) {
+          scroller.style.transition = "none";
+          scroller.style.opacity = "0";
+          scroller.style.filter = "blur(8px)";
+          scroller.style.transform = "translateX(-26px) scale(0.96)";
+          scroller.style.visibility = "hidden";
+        } else {
+          scroller.style.transition =
+            "opacity 260ms ease, transform 320ms cubic-bezier(.4,0,.2,1), filter 260ms ease";
+          scroller.style.opacity = "0";
+          scroller.style.filter = "blur(8px)";
+          scroller.style.transform = "translateX(-26px) scale(0.96)";
+          setTimeout(function () {
+            if (!state.dhikrVisible) scroller.style.visibility = "hidden";
+          }, 330);
+        }
+      }
+    }
+
+    // استماع في مرحلة الالتقاط (Capture) حتى يعمل بتناغم كامل مع حركة الماء في h0 دون تعارض
+    if (window.__jnhBarListener) {
+      document.removeEventListener("click", window.__jnhBarListener, true);
+    }
+    window.__jnhBarListener = function (ev) {
+      if (matchesAnyId(ev.target, ["h0p1صورة6", "h0p1صورة5", "h0p1الذّكر"])) {
+        setDhikrViewVisible(true, false);
+      } else if (matchesAnyId(ev.target, ["h0p1صورة7", "h0p1صورة4", "h0p1روضتي"])) {
+        setDhikrViewVisible(false, false);
+      }
+    };
+    document.addEventListener("click", window.__jnhBarListener, true);
+
+    // إغلاق h3f2 و h3f3 تلقائياً إذا غادر المستخدم الصفحة h3
+    if (pageEl._jnhLeaveObs) pageEl._jnhLeaveObs.disconnect();
+    pageEl._jnhLeaveObs = new MutationObserver(function () {
+      var st = getComputedStyle(pageEl);
+      if (st.display === "none" || st.visibility === "hidden" || parseFloat(st.opacity || "1") < 0.05) {
+        if (state.hadithOpen) closeHadith();
+        if (state.modalOpen) closeModal(true);
+      }
+    });
+    pageEl._jnhLeaveObs.observe(pageEl, { attributes: true, attributeFilter: ["style", "class"] });
+
     state.playCardsIntro = playCardsIntro;
+    state.setDhikrViewVisible = setDhikrViewVisible;
     pageEl._jnhState = state;
-    if (playIntro) playCardsIntro();
+
+    var initShow = isDhikrTabActiveNow();
+    setDhikrViewVisible(initShow, true);
+    if (playIntro && initShow) playCardsIntro();
   }
 
   function getTargetPage(el) {
@@ -1197,7 +1351,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     },
     reset: function (el) {
       var pg = getTargetPage(el);
-      if (pg && pg._jnhState && pg._jnhState.playCardsIntro) {
+      if (pg && pg._jnhState && pg._jnhState.dhikrVisible && pg._jnhState.playCardsIntro) {
         pg._jnhState.playCardsIntro();
       }
     }
