@@ -33,7 +33,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     }
   ];
 
-  // أيقونات Lucide فيكتور نقية مدمجة (تعمل بدون إنترنت وبأعلى دقة)
   var LUCIDE_SVG = {
     palm:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -89,11 +88,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
   function lerp(a, b, t) { return a + (b - a) * t; }
   function easeOutCubic(t) { return 1 - Math.pow(1 - clamp(t, 0, 1), 3); }
-  function easeOutBack(t) {
-    t = clamp(t, 0, 1);
-    var c1 = 1.55, c3 = c1 + 1;
-    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-  }
 
   function normId(s) {
     return String(s || "")
@@ -116,13 +110,84 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return null;
   }
 
+  function ensureFallbackArabicFont() {
+    if (document.getElementById("jnh-fallback-font-link")) return;
+    var link = document.createElement("link");
+    link.id = "jnh-fallback-font-link";
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@700;800&family=Cairo:wght@700;800;900&display=swap";
+    document.head.appendChild(link);
+  }
+
+  // التقاط خط PixelLab المحمّل في التطبيق تلقائياً (liveInputs + @font-face + document.fonts)
+  function resolveProjectFont(origId, customFontName) {
+    var fallbackStack = "'Baloo Bhaijaan 2', 'Cairo', 'Tajawal', system-ui, sans-serif";
+    if (customFontName && String(customFontName).trim()) {
+      return "'" + String(customFontName).trim().replace(/['"]/g, "") + "', " + fallbackStack;
+    }
+
+    var li = (window.BRAIN && window.BRAIN.liveInputs) || {};
+    var nOrig = normId(origId);
+
+    // 1. مطابقة مباشرة للعنصر في liveInputs
+    for (var k in li) {
+      if ((k === origId || normId(k) === nOrig) && li[k] && li[k].style && li[k].style.cssFontFamily) {
+        return "'" + li[k].style.cssFontFamily + "', " + fallbackStack;
+      }
+    }
+    // 2. أي خط مسجّل لعناصر h3 في liveInputs
+    for (var k3 in li) {
+      if (k3.indexOf("h3") === 0 && li[k3] && li[k3].style && li[k3].style.cssFontFamily) {
+        return "'" + li[k3].style.cssFontFamily + "', " + fallbackStack;
+      }
+    }
+    // 3. أي خط PixelLab مسجّل في المشروع (مثل خط h1p1إسمك_الكريم_..)
+    for (var ka in li) {
+      if (li[ka] && li[ka].style && li[ka].style.cssFontFamily) {
+        return "'" + li[ka].style.cssFontFamily + "', " + fallbackStack;
+      }
+    }
+    // 4. فحص قواعد @font-face المضمّنة في الصفحة
+    try {
+      for (var s = 0; s < document.styleSheets.length; s++) {
+        var rules;
+        try { rules = document.styleSheets[s].cssRules; } catch (e) { continue; }
+        if (!rules) continue;
+        for (var r = 0; r < rules.length; r++) {
+          if (rules[r].type === 5 && rules[r].style && rules[r].style.fontFamily) {
+            var fam = String(rules[r].style.fontFamily).replace(/^['"]|['"]$/g, "").trim();
+            if (fam && !/lucide|icon|baloo|cairo/i.test(fam)) {
+              return "'" + fam + "', " + fallbackStack;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    // 5. فحص document.fonts
+    try {
+      if (document.fonts && document.fonts.forEach) {
+        var found = "";
+        document.fonts.forEach(function (ff) {
+          if (found) return;
+          var fm = String(ff.family || "").replace(/^['"]|['"]$/g, "").trim();
+          if (fm && !/lucide|icon|baloo|cairo|serif|sans|mono/i.test(fm)) found = fm;
+        });
+        if (found) return "'" + found + "', " + fallbackStack;
+      }
+    } catch (e) {}
+
+    return fallbackStack;
+  }
+
   function injectStyles() {
+    ensureFallbackArabicFont();
     if (document.getElementById("jnh-system-styles")) return;
     var st = document.createElement("style");
     st.id = "jnh-system-styles";
     st.textContent =
-      ".jnh-scroll-viewport{position:absolute;left:0;top:0;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;" +
-      "-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:none;z-index:25;box-sizing:border-box;touch-action:pan-y;}" +
+      ".jnh-scroll-viewport{position:absolute;left:0;top:0;width:100%;overflow-y:auto;overflow-x:hidden;" +
+      "-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scrollbar-width:none;z-index:25;" +
+      "box-sizing:border-box;touch-action:pan-y;pointer-events:auto;}" +
       ".jnh-scroll-viewport::-webkit-scrollbar{display:none;}" +
       ".jnh-card-slot{position:relative;margin-left:auto;margin-right:auto;will-change:transform,opacity,filter;}" +
       ".jnh-btn-press{transition:transform 210ms cubic-bezier(.34,1.56,.64,1),filter 180ms ease;cursor:pointer;-webkit-tap-highlight-color:transparent;}" +
@@ -130,7 +195,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       ".jnh-icon-overlay{position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:8;}" +
       ".jnh-icon-overlay svg{width:54%;height:54%;display:block;}" +
       ".jnh-text-overlay{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;" +
-      "direction:rtl;pointer-events:none;z-index:9;box-sizing:border-box;padding:2px 6px;line-height:1.35;white-space:pre-line;word-break:break-word;}" +
+      "direction:rtl;pointer-events:none;z-index:9;box-sizing:border-box;padding:2px 8px;line-height:1.35;white-space:pre-line;word-break:break-word;}" +
       ".jnh-backdrop{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity 320ms cubic-bezier(.22,1,.36,1),backdrop-filter 320ms ease;}" +
       ".jnh-backdrop.on{opacity:1;pointer-events:auto;}" +
       "@keyframes jnhPopBurst{0%{transform:translate(-50%,-50%) scale(.45);opacity:.95}100%{transform:translate(-50%,-50%) scale(1.95);opacity:0}}" +
@@ -142,7 +207,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     document.head.appendChild(st);
   }
 
-  // محرك صوتي ناعم (نقرة تسبيح / فتح البطاقة / انبثاق الحديث / نبضة الأيقونة)
   function getAudio() {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
@@ -204,7 +268,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     } catch (e) {}
   }
 
-  // استخراج اللون الصافي من صورة العنصر
   function sampleColor(el, fallback) {
     if (!el) return fallback;
     try {
@@ -233,7 +296,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return lum > 0.52 ? "#242021" : "#EFEBE0";
   }
 
-  // اكتشاف حدود الحبر داخل الصورة لتوسيط الأيقونة أو النص بدقة متناهية
   function getInkFrac(el) {
     var def = { u0: 0, v0: 0, u1: 1, v1: 1 };
     if (!el) return def;
@@ -290,13 +352,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return { w: bw + ex * 2, h: bh + ex * 2 };
   }
 
-  function getFontFamilyFor(id) {
-    var li = (window.BRAIN && window.BRAIN.liveInputs) || {};
-    var st = (li[id] && li[id].style) || {};
-    var f = st.cssFontFamily || "";
-    return f ? ("'" + f + "', 'Tajawal', 'Cairo', system-ui, sans-serif") : "'Tajawal', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif";
-  }
-
   function setCenteredText(hostEl, text, opts) {
     if (!hostEl) return null;
     opts = opts || {};
@@ -305,6 +360,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
     var img = hostEl.querySelector("img");
     if (img) img.style.opacity = "0";
+    var liveInp = hostEl.querySelector(".plp-live-input, input, textarea");
+    if (liveInp) { liveInp.style.opacity = "0"; liveInp.style.pointerEvents = "none"; }
     hostEl.style.overflow = "visible";
 
     var box = hostEl.querySelector(".jnh-text-overlay");
@@ -316,25 +373,30 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
     var dims = applyBoxToOverlay(hostEl, box, opts.expand || 0);
     box.style.color = color;
-    box.style.fontFamily = opts.fontFamily || getFontFamilyFor(opts.origId || hostEl.id);
+    box.style.fontFamily = resolveProjectFont(opts.origId || hostEl.id, opts.customFont);
     box.style.fontWeight = opts.weight || "800";
     box.style.lineHeight = String(opts.lineHeight || 1.38);
     box.textContent = text;
 
-    // ضبط حجم الخط تلقائياً ليملأ المساحة بتوازن ويتمركز تماماً في المنتصف
-    var maxFs = opts.maxFontSize || Math.max(16, Math.round(dims.h * (opts.singleLine ? 0.76 : 0.34)));
-    var minFs = opts.minFontSize || 12;
+    var autoMax = Math.max(20, Math.round(dims.h * (opts.singleLine ? 0.78 : 0.42)));
+    var maxFs = opts.maxFontSize ? Math.max(opts.maxFontSize, autoMax) : autoMax;
+    var minFs = opts.minFontSize || 14;
     box.style.whiteSpace = opts.singleLine ? "nowrap" : "pre-line";
 
-    var fs = maxFs;
-    box.style.fontSize = fs + "px";
-    var guard = 0;
-    while (fs > minFs && guard < 40) {
-      if (box.scrollHeight <= dims.h + 4 && box.scrollWidth <= dims.w + 4) break;
-      fs = Math.max(minFs, Math.floor(fs * 0.91));
+    function fitNow() {
+      var fs = maxFs;
       box.style.fontSize = fs + "px";
-      guard++;
+      var guard = 0;
+      while (fs > minFs && guard < 45) {
+        if (box.scrollHeight <= dims.h + 6 && box.scrollWidth <= dims.w + 6) break;
+        fs = Math.max(minFs, Math.floor(fs * 0.91));
+        box.style.fontSize = fs + "px";
+        guard++;
+      }
     }
+
+    fitNow();
+    box._jnhRefit = fitNow;
     return box;
   }
 
@@ -372,7 +434,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       cur = cur.parentElement;
     }
 
-    // في حال كانت العناصر متجاورة مباشرة داخل plp-wrapper نجمعها داخل حاوية نظيفة
     var wrap = pageEl.querySelector(".plp-wrapper") || pageEl;
     var grp = document.createElement("div");
     grp.className = "jnh-auto-group";
@@ -407,33 +468,50 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     return { left: minX, top: minY, right: maxX, bottom: maxY, width: maxX - minX, height: maxY - minY };
   }
 
-  function normalizeGroupIntoBox(groupEl, slotEl, scaleX, scaleY) {
+  // تطبيع المجموعة وإلغاء التصغير الافتراضي للطبقة العائمة ثم ضبطها على العرض المستهدف بدقة 100%
+  function normalizeAndScaleGroup(groupEl, slotEl, scaleX, scaleY, targetW) {
     slotEl.style.position = "relative";
     slotEl.style.width = "10px";
     slotEl.style.height = "10px";
+
+    var innerEl = document.createElement("div");
+    innerEl.style.cssText = "position:absolute;left:0;top:0;transform-origin:0 0;";
+
+    var shiftEl = document.createElement("div");
+    shiftEl.style.cssText = "position:absolute;left:0;top:0;";
+
     groupEl.style.position = "absolute";
     groupEl.style.left = "0px";
     groupEl.style.top = "0px";
+    groupEl.style.transform = "none";
     groupEl.style.display = "block";
     groupEl.style.visibility = "visible";
     groupEl.style.opacity = "1";
-    slotEl.appendChild(groupEl);
 
-    var slotR = slotEl.getBoundingClientRect();
+    shiftEl.appendChild(groupEl);
+    innerEl.appendChild(shiftEl);
+    slotEl.appendChild(innerEl);
+
+    var innerR = innerEl.getBoundingClientRect();
     var uR = measureKidsUnionRect(groupEl);
-    var w = Math.max(40, uR.width / scaleX);
-    var h = Math.max(40, uR.height / scaleY);
-    var offX = (uR.left - slotR.left) / scaleX;
-    var offY = (uR.top - slotR.top) / scaleY;
+    var natW = Math.max(40, uR.width / scaleX);
+    var natH = Math.max(40, uR.height / scaleY);
+    var offX = (uR.left - innerR.left) / scaleX;
+    var offY = (uR.top - innerR.top) / scaleY;
 
-    groupEl.style.left = (-offX) + "px";
-    groupEl.style.top = (-offY) + "px";
-    slotEl.style.width = w + "px";
-    slotEl.style.height = h + "px";
-    return { w: w, h: h };
+    shiftEl.style.left = (-offX) + "px";
+    shiftEl.style.top = (-offY) + "px";
+
+    var fitScale = targetW / natW;
+    var finalW = natW * fitScale;
+    var finalH = natH * fitScale;
+
+    innerEl.style.transform = "scale(" + fitScale.toFixed(4) + ")";
+    slotEl.style.width = Math.round(finalW) + "px";
+    slotEl.style.height = Math.round(finalH) + "px";
+    return { w: finalW, h: finalH, fitScale: fitScale, innerEl: innerEl };
   }
 
-  // طيران فيكتور مرن للأيقونات بين البطاقة (h3f1) والواجهة العائمة (h3f2)
   function flyHeroIcon(iconKey, fromRect, toRect, fromColorHex, toColorHex, durationMs, onArrive) {
     if (!fromRect || !toRect || fromRect.width < 2 || toRect.width < 2) {
       if (onArrive) onArrive();
@@ -493,8 +571,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
   function spawnTapBurst(parentEl, x, y, colorCss, showPlusOne) {
     var ring = document.createElement("div");
     ring.style.cssText =
-      "position:absolute;left:" + x + "px;top:" + y + "px;width:54px;height:54px;border-radius:999px;" +
-      "border:3px solid " + colorCss + ";pointer-events:none;z-index:40;animation:jnhPopBurst 420ms cubic-bezier(.22,1,.36,1) forwards;";
+      "position:absolute;left:" + x + "px;top:" + y + "px;width:64px;height:64px;border-radius:999px;" +
+      "border:3.5px solid " + colorCss + ";pointer-events:none;z-index:40;animation:jnhPopBurst 420ms cubic-bezier(.22,1,.36,1) forwards;";
     parentEl.appendChild(ring);
     setTimeout(function () { if (ring.parentNode) ring.parentNode.removeChild(ring); }, 450);
 
@@ -502,8 +580,8 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var fl = document.createElement("div");
       fl.textContent = "+1";
       fl.style.cssText =
-        "position:absolute;left:" + x + "px;top:" + (y - 14) + "px;font-weight:900;font-size:28px;color:" + colorCss + ";" +
-        "font-family:system-ui,sans-serif;pointer-events:none;z-index:42;text-shadow:0 2px 10px rgba(0,0,0,0.2);" +
+        "position:absolute;left:" + x + "px;top:" + (y - 16) + "px;font-weight:900;font-size:34px;color:" + colorCss + ";" +
+        "font-family:system-ui,sans-serif;pointer-events:none;z-index:42;text-shadow:0 2px 10px rgba(0,0,0,0.22);" +
         "animation:jnhFloatPlus 560ms cubic-bezier(.22,1,.36,1) forwards;";
       parentEl.appendChild(fl);
       setTimeout(function () { if (fl.parentNode) fl.parentNode.removeChild(fl); }, 590);
@@ -517,8 +595,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     iconEl.classList.add("jnh-icon-wiggle");
   }
 
-  // ================== تهيئة النظام الكامل على صفحة h3 ==================
-  function mountJannahSystem(pageEl, playIntro) {
+  function mountJannahSystem(pageEl, playIntro, params) {
     if (!pageEl) return;
     if (pageEl._jnhState) {
       if (playIntro) pageEl._jnhState.playCardsIntro();
@@ -528,14 +605,13 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     var wrap = pageEl.querySelector(".plp-wrapper") || pageEl;
     var wr = wrap.getBoundingClientRect();
     if (!wr || wr.width < 10) {
-      // انتظار حتى تصبح صفحة h3 مرئية للقياس بدقة 100%
       if (!pageEl._jnhObserver) {
         pageEl._jnhObserver = new MutationObserver(function () {
           var r = wrap.getBoundingClientRect();
           if (r && r.width > 10) {
             pageEl._jnhObserver.disconnect();
             pageEl._jnhObserver = null;
-            mountJannahSystem(pageEl, true);
+            mountJannahSystem(pageEl, true, params);
           }
         });
         pageEl._jnhObserver.observe(pageEl, { attributes: true, attributeFilter: ["style", "class"] });
@@ -546,17 +622,25 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
     injectStyles();
     loadCounts();
 
+    var p = params || {};
+    var cardWidthFrac = clamp((parseFloat(p.cardWidthPct) || 88) / 100, 0.55, 0.96);
+    var cardGapPx = clamp(parseFloat(p.cardGap) || 38, 14, 100);
+    var customFont = p.fontName || "";
+
     var wrapW = parseFloat(wrap.style.width) || wr.width;
     var wrapH = parseFloat(wrap.style.height) || wr.height;
     var scaleX = wr.width / wrapW;
     var scaleY = wr.height / wrapH;
+
+    // حساب الارتفاع المرئي الفعلي داخل الشاشة لضمان عمل السحب والتمرير دائماً
+    var vpH = window.innerHeight || document.documentElement.clientHeight || 800;
+    var visibleWrapH = Math.round(Math.min(wrapH, Math.max(300, (vpH - Math.max(0, wr.top)) / scaleY)));
 
     var f1Orig = findGroupContainer("h3f1", pageEl);
     var f2Orig = findGroupContainer("h3f2", pageEl);
     var f3Orig = findGroupContainer("h3f3", pageEl);
     if (!f1Orig) return;
 
-    // ألوان أساسية مستخرجة من صور التصميم الأصلي
     var colTitle1 = sampleColor(findEl("h3f1نخلة", f1Orig), "#EFEBE0");
     var colDeed1  = sampleColor(findEl("h3f1ت", f1Orig), "#189E68");
     var colIcon1  = pickContrastIconColor(findEl("h3f1صورة7", f1Orig), "#242021");
@@ -568,7 +652,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
     var colHadith3 = f3Orig ? sampleColor(findEl("h3f3م", f3Orig), "#189E68") : "#189E68";
 
-    // إظهار القوالب لحظياً في الخفاء لقياس أبعادها الهندسية الدقيقة
     [f1Orig, f2Orig, f3Orig].forEach(function (g) {
       if (!g) return;
       g.style.display = "block";
@@ -576,15 +659,12 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       g.style.opacity = "1";
     });
 
-    // حساب موضع البداية العلوي لقالب البطاقة الأصلي h3f1
-    var f1UnionR = measureKidsUnionRect(f1Orig);
-    var topPad = clamp((f1UnionR.top - wr.top) / scaleY, 44, 180);
-
-    // 1. إنشاء حاوية السحب العمودي للبطاقات الأربع
+    // 1. إنشاء منطقة السحب العمودي بالارتفاع المرئي الدقيق مع مسافة سفلية فوق h0
     var scroller = document.createElement("div");
     scroller.className = "jnh-scroll-viewport";
-    scroller.style.paddingTop = Math.round(topPad) + "px";
-    scroller.style.paddingBottom = "250px";
+    scroller.style.height = visibleWrapH + "px";
+    scroller.style.paddingTop = Math.round(wrapW * 0.065) + "px";
+    scroller.style.paddingBottom = Math.round(visibleWrapH * 0.24) + "px";
     wrap.appendChild(scroller);
 
     var state = {
@@ -598,26 +678,29 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       scroller: scroller
     };
 
-    // 2. تجهيز الواجهة العائمة h3f2 (العدّاد والتفاصيل)
-    var modalBackdrop = null, modalShell = null, f2Refs = null, modalDims = { w: 720, h: 820 };
+    // 2. تجهيز الواجهة العائمة h3f2 (82% من عرض الشاشة وممركزة في المنطقة المرئية)
+    var modalBackdrop = null, modalShell = null, f2Refs = null, modalDims = { w: 780, h: 900 };
+    var modalCenterY = Math.round(visibleWrapH * 0.45);
     if (f2Orig) {
       modalBackdrop = document.createElement("div");
       modalBackdrop.className = "jnh-backdrop";
-      modalBackdrop.style.cssText = "z-index:140;background:rgba(12,12,15,0.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
+      modalBackdrop.style.cssText =
+        "z-index:140;height:" + visibleWrapH + "px;background:rgba(12,12,15,0.62);" +
+        "backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);";
       wrap.appendChild(modalBackdrop);
 
       modalShell = document.createElement("div");
       modalShell.style.cssText =
-        "position:absolute;left:50%;top:47%;z-index:150;display:none;opacity:0;pointer-events:none;" +
+        "position:absolute;left:50%;top:" + modalCenterY + "px;z-index:150;display:none;opacity:0;pointer-events:none;" +
         "transform:translate(-50%,-50%) scale(0.76);will-change:transform,opacity,filter;";
       wrap.appendChild(modalShell);
 
       modalShell.style.display = "block";
       modalShell.style.visibility = "hidden";
-      modalDims = normalizeGroupIntoBox(f2Orig, modalShell, scaleX, scaleY);
+      modalDims = normalizeAndScaleGroup(f2Orig, modalShell, scaleX, scaleY, wrapW * 0.82);
       modalShell.style.position = "absolute";
       modalShell.style.left = "50%";
-      modalShell.style.top = "47%";
+      modalShell.style.top = modalCenterY + "px";
       modalShell.style.display = "none";
       modalShell.style.visibility = "visible";
 
@@ -633,10 +716,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
       if (f2Refs.iconReward) f2Refs.iconReward.classList.add("jnh-btn-press");
       if (f2Refs.iconText) f2Refs.iconText.classList.add("jnh-btn-press");
-      if (f2Refs.plusBtn) {
-        f2Refs.plusBtn.classList.add("jnh-btn-press");
-        f2Refs.plusBtn.style.zIndex = "30";
-      }
+      if (f2Refs.plusBtn) { f2Refs.plusBtn.classList.add("jnh-btn-press"); f2Refs.plusBtn.style.zIndex = "30"; }
       if (f2Refs.plusBg) f2Refs.plusBg.classList.add("jnh-btn-press");
 
       modalBackdrop.addEventListener("click", function () {
@@ -645,12 +725,14 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       });
     }
 
-    // 3. تجهيز نافذة الحديث المنبثقة h3f3
-    var hadithBackdrop = null, hadithShell = null, f3Refs = null, hadithDims = { w: 720, h: 280 };
+    // 3. تجهيز نافذة الحديث المنبثقة h3f3 (80% من عرض الشاشة)
+    var hadithBackdrop = null, hadithShell = null, f3Refs = null, hadithDims = { w: 760, h: 300 };
     if (f3Orig) {
       hadithBackdrop = document.createElement("div");
       hadithBackdrop.className = "jnh-backdrop";
-      hadithBackdrop.style.cssText = "z-index:240;background:rgba(10,10,13,0.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
+      hadithBackdrop.style.cssText =
+        "z-index:240;height:" + visibleWrapH + "px;background:rgba(10,10,13,0.34);" +
+        "backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);";
       wrap.appendChild(hadithBackdrop);
 
       hadithShell = document.createElement("div");
@@ -661,7 +743,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
       hadithShell.style.display = "block";
       hadithShell.style.visibility = "hidden";
-      hadithDims = normalizeGroupIntoBox(f3Orig, hadithShell, scaleX, scaleY);
+      hadithDims = normalizeAndScaleGroup(f3Orig, hadithShell, scaleX, scaleY, wrapW * 0.80);
       hadithShell.style.position = "absolute";
       hadithShell.style.display = "none";
       hadithShell.style.visibility = "visible";
@@ -675,37 +757,25 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       hadithShell.addEventListener("click", closeHadith);
     }
 
-    // ---------------- دوال فتح وإغلاق نافذة الحديث h3f3 بالقرب من أيقونة textalignend ----------------
     function openHadith(cardIdx, anchorEl) {
       if (!hadithShell || !f3Refs) return;
-      if (state.hadithOpen && state.hadithAnchorEl === anchorEl) {
-        closeHadith();
-        return;
-      }
+      if (state.hadithOpen && state.hadithAnchorEl === anchorEl) { closeHadith(); return; }
 
       var card = CARDS_DATA[cardIdx];
       state.hadithOpen = true;
       state.hadithAnchorEl = anchorEl;
       playSfx("hadithOpen");
 
-      // تحديث نص الحديث وتمركزه بدقة داخل h3f3م
       hadithShell.style.display = "block";
       hadithShell.style.visibility = "hidden";
       hadithShell.style.transition = "none";
       hadithShell.style.transform = "scale(1)";
 
       var hBox = setCenteredText(f3Refs.text, card.hadith, {
-        color: colHadith3,
-        fallbackColor: "#189E68",
-        origId: "h3f3م",
-        weight: "700",
-        lineHeight: 1.48,
-        maxFontSize: 34,
-        minFontSize: 16,
-        expand: 10
+        color: colHadith3, fallbackColor: "#189E68", origId: "h3f3م", customFont: customFont,
+        weight: "700", lineHeight: 1.48, minFontSize: 16, expand: 10
       });
 
-      // حساب موقع أيقونة textalignend اللحظي على الشاشة (حتى أثناء السحب)
       var liveWr = wrap.getBoundingClientRect();
       var sx = liveWr.width / wrapW;
       var sy = liveWr.height / wrapH;
@@ -719,15 +789,14 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var popW = hadithDims.w;
       var popH = hadithDims.h;
       var margin = 24;
-      var safeBottomLimit = wrapH - 210;
+      var safeBottomLimit = visibleWrapH - Math.round(visibleWrapH * 0.17);
 
-      // اختيار الظهور أعلى الأيقونة أو أسفلها تلقائياً حسب موقعها في الشاشة
       var spaceBelow = safeBottomLimit - ayBot;
       var spaceAbove = ayTop - margin;
       var placeBelow = (spaceBelow >= popH + 22) || (spaceBelow >= spaceAbove);
 
       var left = clamp(ax - popW * 0.5, margin, Math.max(margin, wrapW - popW - margin));
-      var top = placeBelow ? (ayBot + 20) : (ayTop - popH - 20);
+      var top = placeBelow ? (ayBot + 22) : (ayTop - popH - 22);
       top = clamp(top, margin, Math.max(margin, safeBottomLimit - popH));
 
       var ox = clamp(ax - left, 24, popW - 24);
@@ -780,25 +849,16 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       hadithShell.style.transform = "scale(0.18)";
 
       setTimeout(function () {
-        if (!state.hadithOpen && hadithShell) {
-          hadithShell.style.display = "none";
-        }
+        if (!state.hadithOpen && hadithShell) hadithShell.style.display = "none";
       }, 260);
     }
 
-    // ---------------- دوال فتح وإغلاق الواجهة العائمة h3f2 (العدّاد) ----------------
     function renderModalCounter(cardKey, animateBump) {
       if (!f2Refs || !f2Refs.counter) return;
       var val = memCounts[cardKey] || 0;
       var box = setCenteredText(f2Refs.counter, String(val), {
-        color: colCount2,
-        fallbackColor: "#189E68",
-        origId: "h3f210000",
-        singleLine: true,
-        weight: "900",
-        maxFontSize: 78,
-        minFontSize: 28,
-        expand: 8
+        color: colCount2, fallbackColor: "#189E68", origId: "h3f210000", customFont: customFont,
+        singleLine: true, weight: "900", minFontSize: 28, expand: 8
       });
       if (animateBump && box) {
         box.classList.remove("jnh-count-bump");
@@ -821,30 +881,27 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var srcTextRect   = cardRefs.btnText ? cardRefs.btnText.getBoundingClientRect() : null;
       var srcCardRect   = cardRefs.slot.getBoundingClientRect();
 
-      // تعبئة بيانات h3f2 الخاصة بالبطاقة المضغوطة
       modalShell.style.display = "block";
       modalShell.style.visibility = "hidden";
       modalShell.style.transition = "none";
       modalShell.style.transform = "translate(-50%,-50%) scale(1)";
 
       var tBox = setCenteredText(f2Refs.title, card.title, {
-        color: colTitle2, fallbackColor: "#242021", origId: "h3f2نخلة",
-        singleLine: true, weight: "900", maxFontSize: 64, minFontSize: 26, expand: 12
+        color: colTitle2, fallbackColor: "#242021", origId: "h3f2نخلة", customFont: customFont,
+        singleLine: true, weight: "900", minFontSize: 26, expand: 12
       });
       var dBox = setCenteredText(f2Refs.deed, card.deed, {
-        color: colDeed2, fallbackColor: "#189E68", origId: "h3f2ه",
-        weight: "800", lineHeight: 1.44, maxFontSize: 42, minFontSize: 20, expand: 10
+        color: colDeed2, fallbackColor: "#189E68", origId: "h3f2ه", customFont: customFont,
+        weight: "800", lineHeight: 1.44, minFontSize: 20, expand: 10
       });
       var icRew = setCenteredIcon(f2Refs.iconReward, card.icon, colIcon2);
       var icTxt = setCenteredIcon(f2Refs.iconText, "textAlignEnd", colIcon2);
       renderModalCounter(card.key, false);
 
-      // قياس مواقع الدوائر المستهدفة في h3f2 قبل بدء الطيران
       var dstRewardRect = f2Refs.iconReward ? f2Refs.iconReward.getBoundingClientRect() : null;
       var dstTextRect   = f2Refs.iconText ? f2Refs.iconText.getBoundingClientRect() : null;
       var dstModalRect  = modalShell.getBoundingClientRect();
 
-      // إخفاء الأيقونتين داخل h3f2 لحظياً حتى تصل الأيقونتان الطائرتان
       if (icRew) icRew.style.opacity = "0";
       if (icTxt) icTxt.style.opacity = "0";
 
@@ -870,7 +927,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
 
       modalBackdrop.classList.add("on");
 
-      // إطلاق طيران الأيقونتين من البطاقة إلى دائرتي h3f2صورة4 و h3f2صورة5
       flyHeroIcon(card.icon, srcRewardRect, dstRewardRect, colIcon1, colIcon2, 430, function () {
         if (icRew) {
           icRew.style.transition = "opacity 120ms ease";
@@ -916,7 +972,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       state.modalOpen = false;
       playSfx("closeModal");
 
-      // عكس طيران الأيقونتين إلى البطاقة الأصلية بسلاسة
       if (cardRefs && f2Refs) {
         var fromRew = f2Refs.iconReward ? f2Refs.iconReward.getBoundingClientRect() : null;
         var toRew   = cardRefs.btnReward ? cardRefs.btnReward.getBoundingClientRect() : null;
@@ -941,13 +996,10 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       modalShell.style.transform = "translate(-50%,-50%) scale(0.76)";
 
       setTimeout(function () {
-        if (!state.modalOpen && modalShell) {
-          modalShell.style.display = "none";
-        }
+        if (!state.modalOpen && modalShell) modalShell.style.display = "none";
       }, 290);
     }
 
-    // ربط تفاعلات عناصر h3f2 المتطابقة مع البطاقات (الأيقونة + textalignend + زر +)
     if (f2Refs) {
       if (f2Refs.iconText) {
         f2Refs.iconText.addEventListener("click", function (ev) {
@@ -976,7 +1028,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         playSfx("count", memCounts[card.key]);
         renderModalCounter(card.key, true);
 
-        // أثر نبضة وحلقة +1 متصاعدة فوق زر +
         var src = f2Refs.plusBtn || f2Refs.plusBg;
         if (src && modalShell) {
           var sR = src.getBoundingClientRect();
@@ -991,16 +1042,15 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       };
 
       if (f2Refs.plusBtn) f2Refs.plusBtn.addEventListener("click", onIncrement);
-      if (f2Refs.plusBg && f2Refs.plusBg !== f2Refs.plusBtn) {
-        f2Refs.plusBg.addEventListener("click", onIncrement);
-      }
+      if (f2Refs.plusBg && f2Refs.plusBg !== f2Refs.plusBtn) f2Refs.plusBg.addEventListener("click", onIncrement);
     }
 
-    // 4. استنساخ القالب h3f1 إلى 4 بطاقات متكاملة داخل قائمة السحب
+    // 4. إنشاء البطاقات الأربع بالعرض الكامل (88% من الشاشة) داخل قائمة السحب العمودي
+    var targetCardW = wrapW * cardWidthFrac;
     CARDS_DATA.forEach(function (card, idx) {
       var slot = document.createElement("div");
       slot.className = "jnh-card-slot";
-      slot.style.marginBottom = "34px";
+      slot.style.marginBottom = Math.round(cardGapPx) + "px";
       scroller.appendChild(slot);
 
       var clone = f1Orig.cloneNode(true);
@@ -1010,7 +1060,7 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
         node.removeAttribute("id");
       });
 
-      normalizeGroupIntoBox(clone, slot, scaleX, scaleY);
+      normalizeAndScaleGroup(clone, slot, scaleX, scaleY, targetCardW);
 
       var elTitle  = findEl("h3f1نخلة", clone);
       var elDeed   = findEl("h3f1ت", clone);
@@ -1019,12 +1069,12 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var elHand   = findEl("h3f1صورة6", clone);
 
       setCenteredText(elTitle, card.title, {
-        color: colTitle1, fallbackColor: "#EFEBE0", origId: "h3f1نخلة",
-        singleLine: true, weight: "900", maxFontSize: 56, minFontSize: 24, expand: 10
+        color: colTitle1, fallbackColor: "#EFEBE0", origId: "h3f1نخلة", customFont: customFont,
+        singleLine: true, weight: "900", minFontSize: 22, expand: 10
       });
       setCenteredText(elDeed, card.deed, {
-        color: colDeed1, fallbackColor: "#189E68", origId: "h3f1ت",
-        weight: "800", lineHeight: 1.42, maxFontSize: 38, minFontSize: 18, expand: 8
+        color: colDeed1, fallbackColor: "#189E68", origId: "h3f1ت", customFont: customFont,
+        weight: "800", lineHeight: 1.42, minFontSize: 18, expand: 10
       });
 
       var icRew  = setCenteredIcon(elReward, card.icon, colIcon1);
@@ -1034,35 +1084,31 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       var refs = { slot: slot, clone: clone, btnReward: elReward, btnText: elText, btnHand: elHand, icRew: icRew, icTxt: icTxt, icHand: icHand };
       state.cards.push(refs);
 
-      // ربط الأزرار الثلاثة في كل بطاقة بحركاتها واستجابتها الموحدة
       if (elHand) {
         elHand.classList.add("jnh-btn-press");
-        elHand.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          openModal(idx, refs);
-        });
+        elHand.addEventListener("click", function (ev) { ev.stopPropagation(); openModal(idx, refs); });
       }
       if (elText) {
         elText.classList.add("jnh-btn-press");
-        elText.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          openHadith(idx, elText);
-        });
+        elText.addEventListener("click", function (ev) { ev.stopPropagation(); openHadith(idx, elText); });
       }
       if (elReward) {
         elReward.classList.add("jnh-btn-press");
-        elReward.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          playSfx("icon");
-          triggerWiggle(icRew);
-        });
+        elReward.addEventListener("click", function (ev) { ev.stopPropagation(); playSfx("icon"); triggerWiggle(icRew); });
       }
     });
 
-    // إخفاء القالب الأصلي h3f1 بعد نسخ البطاقات الأربع
     f1Orig.style.display = "none";
 
-    // إغلاق نافذة الحديث بنعومة عند بدء السحب + تأثير عمق ناعم للبطاقات أثناء التمرير
+    // إعادة ضبط أحجام وتوسيط النصوص تلقائياً فور اكتمال تحميل الخط
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () {
+        scroller.querySelectorAll(".jnh-text-overlay").forEach(function (box) {
+          if (box._jnhRefit) box._jnhRefit();
+        });
+      });
+    }
+
     var scrollRaf = null;
     function updateScrollDepth() {
       scrollRaf = null;
@@ -1086,7 +1132,6 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
       if (!scrollRaf) scrollRaf = requestAnimationFrame(updateScrollDepth);
     }, { passive: true });
 
-    // 5. أنيميشن دخول متدرّج ناعم لجميع البطاقات وعناصرها الداخلية
     function playCardsIntro() {
       scroller.scrollTop = 0;
       state.cards.forEach(function (refs, idx) {
@@ -1141,13 +1186,13 @@ window.PLP_FX["enter_jannah_rewards"] = (function () {
   }
 
   return {
-    setup: function (el) {
+    setup: function (el, ctx) {
       var pg = getTargetPage(el);
-      if (pg) mountJannahSystem(pg, false);
+      if (pg) mountJannahSystem(pg, false, ctx && ctx.params);
     },
-    run: function (el) {
+    run: function (el, ctx) {
       var pg = getTargetPage(el);
-      if (pg) mountJannahSystem(pg, true);
+      if (pg) mountJannahSystem(pg, true, ctx && ctx.params);
       return Promise.resolve();
     },
     reset: function (el) {
